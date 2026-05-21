@@ -39,6 +39,10 @@
       font: inherit;
     }
 
+    [hidden] {
+      display: none !important;
+    }
+
     .phone-shell {
       width: min(390px, 100%);
       min-height: 100vh;
@@ -60,10 +64,23 @@
     }
 
     .app-header {
+      flex: 0 0 auto;
       padding: 24px 18px 16px;
       background:
         radial-gradient(circle at top right, rgba(165, 235, 102, 0.38), transparent 12rem),
         linear-gradient(180deg, #ffffff 0%, #f3fff7 100%);
+    }
+
+    .app-view {
+      display: none;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .app-view.active {
+      display: flex;
+      flex-direction: column;
     }
 
     .app-title-row {
@@ -181,6 +198,7 @@
 
     .category-scroller {
       display: flex;
+      flex: 0 0 auto;
       gap: 9px;
       overflow-x: auto;
       width: 100%;
@@ -218,6 +236,241 @@
       flex: 1;
       overflow-y: auto;
       padding: 4px 14px 112px;
+    }
+
+    .page-view {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 16px 112px;
+    }
+
+    .page-title {
+      margin: 0 0 16px;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .category-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .category-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      width: 100%;
+      min-height: 72px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      color: var(--text);
+      text-align: left;
+      background: white;
+      box-shadow: 0 8px 20px rgba(31, 45, 42, 0.05);
+      cursor: pointer;
+    }
+
+    .category-card strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .category-card span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .category-mark {
+      display: grid;
+      flex: 0 0 auto;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 16px;
+      color: var(--lime-dark);
+      font-weight: 900;
+      background: var(--lime-soft);
+    }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      min-height: 360px;
+      padding: 28px 18px;
+      border: 1px dashed rgba(50, 200, 109, 0.28);
+      border-radius: 24px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .empty-icon {
+      display: grid;
+      width: 76px;
+      height: 76px;
+      place-items: center;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      color: var(--lime-dark);
+      font-size: 34px;
+      background: var(--lime-soft);
+    }
+
+    .empty-state h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .empty-state p {
+      max-width: 250px;
+      margin: 10px auto 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .conversation-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .conversation-card {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: white;
+      box-shadow: 0 8px 20px rgba(31, 45, 42, 0.06);
+    }
+
+    .conversation-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .conversation-seller {
+      min-width: 0;
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .conversation-price {
+      flex: 0 0 auto;
+      color: var(--lime-dark);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .conversation-product {
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .conversation-preview {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .conversation-location {
+      display: inline-flex;
+      align-self: start;
+      max-width: 100%;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 12px;
+      font-weight: 900;
+      background: var(--lime-soft);
+      word-break: break-word;
+    }
+
+    .profile-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: white;
+      box-shadow: 0 10px 24px rgba(31, 45, 42, 0.06);
+    }
+
+    .profile-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .profile-avatar {
+      display: grid;
+      width: 58px;
+      height: 58px;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      font-size: 22px;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--lime), #9be65f);
+      box-shadow: 0 12px 24px rgba(50, 200, 109, 0.24);
+    }
+
+    .profile-name {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.2;
+    }
+
+    .profile-email {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .publish-count {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      color: var(--lime-dark);
+      font-size: 14px;
+      font-weight: 900;
+      background: var(--lime-soft);
+    }
+
+    .menu-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      color: var(--text);
+      font-weight: 800;
+      background: white;
+    }
+
+    .menu-item span:last-child {
+      color: var(--muted);
     }
 
     .product-section-head {
@@ -590,48 +843,97 @@
 <body>
   <main class="phone-shell">
     <section class="phone-screen" aria-label="青柠集手机 App 展示版">
-      <header class="app-header">
-        <div class="app-title-row">
-          <div>
-            <h1 class="app-title">青柠集</h1>
-            <p class="app-subtitle">校园闲置交换平台</p>
+      <div class="app-view active" id="homeView" data-view="home">
+        <header class="app-header">
+          <div class="app-title-row">
+            <div>
+              <h1 class="app-title">青柠集</h1>
+              <p class="app-subtitle">校园闲置交换平台</p>
+            </div>
+            <div class="avatar" aria-label="用户头像占位">柠</div>
           </div>
-          <div class="avatar" aria-label="用户头像占位">柠</div>
-        </div>
-        <input class="search-box" id="searchInput" type="search" placeholder="搜索商品、地点或卖家" aria-label="搜索商品">
-        <section class="home-banner" aria-label="毕业季闲置交换节">
-          <h2 class="banner-title">毕业季闲置交换节</h2>
-          <p class="banner-copy">让不用的物品继续陪伴下一位同学</p>
+          <input class="search-box" id="searchInput" type="search" placeholder="搜索商品、地点或卖家" aria-label="搜索商品">
+          <section class="home-banner" aria-label="毕业季闲置交换节">
+            <h2 class="banner-title">毕业季闲置交换节</h2>
+            <p class="banner-copy">让不用的物品继续陪伴下一位同学</p>
+          </section>
+          <div class="quick-actions" aria-label="快捷入口">
+            <button class="quick-button" type="button" data-quick="pickup">校内自提</button>
+            <button class="quick-button" type="button" data-quick="free">免费赠送</button>
+          </div>
+        </header>
+
+        <nav class="category-scroller" aria-label="商品分类">
+          <button class="category-tab active" type="button" data-category="全部">全部</button>
+          <button class="category-tab" type="button" data-category="教材资料">教材</button>
+          <button class="category-tab" type="button" data-category="数码电子">数码</button>
+          <button class="category-tab" type="button" data-category="宿舍生活">生活</button>
+          <button class="category-tab" type="button" data-category="运动">运动</button>
+          <button class="category-tab" type="button" data-category="设计生专区">设计</button>
+        </nav>
+
+        <section class="content">
+          <div class="product-section-head">
+            <h2>猜你喜欢</h2>
+            <span class="status-pill" id="statusText">正在加载...</span>
+          </div>
+          <div class="product-grid" id="productGrid" aria-live="polite"></div>
         </section>
-        <div class="quick-actions" aria-label="快捷入口">
-          <button class="quick-button" type="button" data-quick="pickup">校内自提</button>
-          <button class="quick-button" type="button" data-quick="free">免费赠送</button>
-        </div>
-      </header>
+      </div>
 
-      <nav class="category-scroller" aria-label="商品分类">
-        <button class="category-tab active" type="button" data-category="全部">全部</button>
-        <button class="category-tab" type="button" data-category="教材资料">教材</button>
-        <button class="category-tab" type="button" data-category="数码电子">数码</button>
-        <button class="category-tab" type="button" data-category="宿舍生活">生活</button>
-        <button class="category-tab" type="button" data-category="运动">运动</button>
-        <button class="category-tab" type="button" data-category="设计生专区">设计</button>
-      </nav>
-
-      <section class="content">
-        <div class="product-section-head">
-          <h2>猜你喜欢</h2>
-          <span class="status-pill" id="statusText">正在加载...</span>
+      <section class="app-view" id="categoryView" data-view="category">
+        <div class="page-view">
+          <h1 class="page-title">分类</h1>
+          <div class="category-list" id="categoryList"></div>
         </div>
-        <div class="product-grid" id="productGrid" aria-live="polite"></div>
+      </section>
+
+      <section class="app-view" id="messageView" data-view="messages">
+        <div class="page-view">
+          <h1 class="page-title">消息</h1>
+          <div class="empty-state" id="messageEmptyState">
+            <div>
+              <div class="empty-icon">··</div>
+              <h2>暂无消息</h2>
+              <p>联系卖家后，沟通与预约信息会显示在这里。</p>
+            </div>
+          </div>
+          <div class="conversation-list" id="conversationList" hidden></div>
+        </div>
+      </section>
+
+      <section class="app-view" id="profileView" data-view="profile">
+        <div class="page-view">
+          <h1 class="page-title">我的</h1>
+          <section class="profile-card">
+            <div class="profile-head">
+              <div class="profile-avatar">柠</div>
+              <div>
+                <h2 class="profile-name">校园用户</h2>
+                <p class="profile-email">user@university.edu.cn</p>
+              </div>
+            </div>
+            <div class="publish-count">
+              <span>我的发布</span>
+              <span id="publishedCount">0 件</span>
+            </div>
+            <div class="menu-list">
+              <div class="menu-item"><span>我的发布</span><span>›</span></div>
+              <div class="menu-item"><span>我的收藏</span><span>›</span></div>
+              <div class="menu-item"><span>交易记录</span><span>›</span></div>
+              <div class="menu-item"><span>个人资料</span><span>›</span></div>
+              <div class="menu-item"><span>设置</span><span>›</span></div>
+            </div>
+          </section>
+        </div>
       </section>
 
       <nav class="bottom-nav" aria-label="底部导航">
-        <button class="nav-button active" type="button">
+        <button class="nav-button active" type="button" data-tab="home">
           <span class="nav-icon">⌂</span>
           <span>首页</span>
         </button>
-        <button class="nav-button" type="button">
+        <button class="nav-button" type="button" data-tab="category">
           <span class="nav-icon">□</span>
           <span>分类</span>
         </button>
@@ -639,11 +941,11 @@
           <span class="publish-plus">+</span>
           <span>发布</span>
         </button>
-        <button class="nav-button" type="button">
+        <button class="nav-button" type="button" data-tab="messages">
           <span class="nav-icon">○</span>
           <span>消息</span>
         </button>
-        <button class="nav-button" type="button">
+        <button class="nav-button" type="button" data-tab="profile">
           <span class="nav-icon">◇</span>
           <span>我的</span>
         </button>
@@ -735,10 +1037,25 @@
     const submitPublishButton = document.getElementById("submitPublishButton");
     const productTitleInput = document.getElementById("productTitle");
     const quickButtons = document.querySelectorAll(".quick-button");
+    const appViews = document.querySelectorAll(".app-view");
+    const navButtons = document.querySelectorAll(".nav-button[data-tab]");
+    const categoryList = document.getElementById("categoryList");
+    const publishedCount = document.getElementById("publishedCount");
+    const messageEmptyState = document.getElementById("messageEmptyState");
+    const conversationList = document.getElementById("conversationList");
+    const categoryEntries = [
+      { label: "教材资料", mark: "书" },
+      { label: "设计生专区", mark: "设" },
+      { label: "数码电子", mark: "数" },
+      { label: "宿舍生活", mark: "舍" },
+      { label: "免费赠送", mark: "赠" }
+    ];
     let allProducts = [];
     let activeCategory = "全部";
     let searchKeyword = "";
     let currentDetailId = "";
+    let currentDetailProduct = null;
+    let conversations = [];
 
     function normalizeProducts(payload) {
       if (Array.isArray(payload)) return payload;
@@ -810,6 +1127,13 @@
       renderProducts(filteredProducts(), Boolean(searchKeyword.trim()));
     }
 
+    function renderActiveView() {
+      renderFilteredProducts();
+      renderCategoryView();
+      renderMessageView();
+      renderProfileView();
+    }
+
     function renderProducts(products, hasSearch) {
       if (!products.length) {
         grid.innerHTML = `<div class="message">${hasSearch ? "没有找到相关闲置物品" : "暂无商品，稍后再来看看。"}</div>`;
@@ -840,6 +1164,94 @@
       }).join("");
 
       statusText.textContent = `${products.length} 件`;
+    }
+
+    function countByCategory(category) {
+      return allProducts.filter((product) => productCategory(product) === category).length;
+    }
+
+    function setActiveCategory(category, shouldRender = true) {
+      activeCategory = category;
+      categoryTabs.forEach((item) => {
+        item.classList.toggle("active", item.dataset.category === activeCategory);
+      });
+      if (shouldRender) renderFilteredProducts();
+    }
+
+    function showTab(tab) {
+      if (tab === "publish") {
+        openPublishModal();
+        return;
+      }
+      appViews.forEach((view) => {
+        view.classList.toggle("active", view.dataset.view === tab);
+      });
+      navButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.tab === tab);
+      });
+      renderActiveView();
+    }
+
+    function renderCategoryView() {
+      categoryList.innerHTML = categoryEntries.map((item) => {
+        const count = countByCategory(item.label);
+        return `
+          <button class="category-card" type="button" data-category-jump="${escapeHtml(item.label)}">
+            <div>
+              <strong>${escapeHtml(item.label)}</strong>
+              <span>${count} 件商品</span>
+            </div>
+            <span class="category-mark">${escapeHtml(item.mark)}</span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderProfileView() {
+      publishedCount.textContent = `${allProducts.length} 件`;
+    }
+
+    function renderMessageView() {
+      const hasConversations = conversations.length > 0;
+      messageEmptyState.hidden = hasConversations;
+      conversationList.hidden = !hasConversations;
+
+      if (!hasConversations) {
+        conversationList.innerHTML = "";
+        return;
+      }
+
+      conversationList.innerHTML = conversations.map((conversation) => `
+        <article class="conversation-card">
+          <div class="conversation-top">
+            <h2 class="conversation-seller">${escapeHtml(conversation.seller)}</h2>
+            <span class="conversation-price">${escapeHtml(conversation.price)}</span>
+          </div>
+          <p class="conversation-product">${escapeHtml(conversation.productName)}</p>
+          <p class="conversation-preview">你好，我想了解一下这个闲置物品。</p>
+          <span class="conversation-location">${escapeHtml(conversation.location)}</span>
+        </article>
+      `).join("");
+    }
+
+    function contactCurrentSeller() {
+      if (!currentDetailProduct || !currentDetailId) return;
+
+      const product = currentDetailProduct;
+      const conversation = {
+        id: currentDetailId,
+        seller: field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学"),
+        productName: field(product, ["name", "title", "productName"], "未命名商品"),
+        price: formatPrice(field(product, ["price", "amount"], "面议")),
+        location: field(product, ["location", "place", "campus", "address"], "校内")
+      };
+      conversations = [
+        conversation,
+        ...conversations.filter((item) => item.id !== currentDetailId)
+      ];
+
+      closeDetailModal();
+      showTab("messages");
     }
 
     function openDetailModal() {
@@ -876,6 +1288,7 @@
 
     function renderDetail(product, fallbackId) {
       currentDetailId = productId(product) || fallbackId || "";
+      currentDetailProduct = product;
       const name = field(product, ["name", "title", "productName"], "未命名商品");
       const price = field(product, ["price", "amount"], "面议");
       const category = productCategory(product);
@@ -907,6 +1320,7 @@
 
     function renderDetailError() {
       currentDetailId = "";
+      currentDetailProduct = null;
       detailCategory.textContent = "商品详情";
       detailTitle.textContent = "加载失败";
       detailPrice.textContent = "";
@@ -974,20 +1388,19 @@
 
         const payload = await response.json();
         allProducts = normalizeProducts(payload);
-        renderFilteredProducts();
+        renderActiveView();
       } catch (error) {
         statusText.textContent = "加载失败";
         grid.innerHTML = '<div class="message">后端服务未启动，请先运行 localhost:3001</div>';
+        renderCategoryView();
+        renderMessageView();
+        renderProfileView();
       }
     }
 
     categoryTabs.forEach((tab) => {
       tab.addEventListener("click", () => {
-        activeCategory = tab.dataset.category || "全部";
-        categoryTabs.forEach((item) => {
-          item.classList.toggle("active", item === tab);
-        });
-        renderFilteredProducts();
+        setActiveCategory(tab.dataset.category || "全部");
       });
     });
 
@@ -999,19 +1412,30 @@
     quickButtons.forEach((button) => {
       button.addEventListener("click", () => {
         if (button.dataset.quick === "free") {
-          activeCategory = "免费赠送";
           searchKeyword = "";
           searchInput.value = "";
+          setActiveCategory("免费赠送");
         } else {
-          activeCategory = "全部";
           searchKeyword = "";
           searchInput.value = "";
+          setActiveCategory("全部");
         }
+      });
+    });
 
-        categoryTabs.forEach((item) => {
-          item.classList.toggle("active", item.dataset.category === activeCategory);
-        });
-        renderFilteredProducts();
+    categoryList.addEventListener("click", (event) => {
+      const card = event.target.closest(".category-card");
+      if (!card) return;
+      const category = card.dataset.categoryJump || "全部";
+      searchKeyword = "";
+      searchInput.value = "";
+      setActiveCategory(category, false);
+      showTab("home");
+    });
+
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        showTab(button.dataset.tab || "home");
       });
     });
 
@@ -1030,6 +1454,7 @@
     });
 
     openPublishButton.addEventListener("click", openPublishModal);
+    contactSellerButton.addEventListener("click", contactCurrentSeller);
     deleteDetailButton.addEventListener("click", () => {
       deleteProduct(currentDetailId, deleteDetailButton);
     });
