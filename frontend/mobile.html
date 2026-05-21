@@ -460,6 +460,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      width: 100%;
       min-height: 48px;
       padding: 0 14px;
       border: 1px solid var(--line);
@@ -467,10 +468,111 @@
       color: var(--text);
       font-weight: 800;
       background: white;
+      cursor: pointer;
     }
 
     .menu-item span:last-child {
       color: var(--muted);
+    }
+
+    .my-posts-panel {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .panel-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel-title-row h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    .panel-title-row span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .my-post-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .my-post-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfefd;
+    }
+
+    .my-post-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .my-post-name {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .my-post-price {
+      flex: 0 0 auto;
+      color: var(--lime-dark);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .my-post-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .my-post-meta span {
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: var(--lime-soft);
+    }
+
+    .my-post-delete {
+      justify-self: end;
+      min-height: 32px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 900;
+      background: #fff1ed;
+      cursor: pointer;
+    }
+
+    .my-post-empty {
+      padding: 18px;
+      border: 1px dashed rgba(50, 200, 109, 0.28);
+      border-radius: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.7);
     }
 
     .product-section-head {
@@ -560,27 +662,10 @@
       word-break: break-word;
     }
 
-    .delete-button {
-      min-height: 32px;
-      padding: 0 12px;
-      border: 0;
-      border-radius: 999px;
-      color: var(--danger);
-      font-size: 13px;
-      font-weight: 800;
-      background: #fff1ed;
-      cursor: pointer;
-    }
-
     .detail-delete-button {
       flex: 0 0 auto;
       color: var(--danger);
       background: #fff1ed;
-    }
-
-    .delete-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
     }
 
     .message {
@@ -918,12 +1003,19 @@
               <span id="publishedCount">0 件</span>
             </div>
             <div class="menu-list">
-              <div class="menu-item"><span>我的发布</span><span>›</span></div>
+              <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
               <div class="menu-item"><span>我的收藏</span><span>›</span></div>
               <div class="menu-item"><span>交易记录</span><span>›</span></div>
               <div class="menu-item"><span>个人资料</span><span>›</span></div>
               <div class="menu-item"><span>设置</span><span>›</span></div>
             </div>
+            <section class="my-posts-panel" id="myPostsPanel" hidden>
+              <div class="panel-title-row">
+                <h3>我的发布</h3>
+                <span id="myPostsCount">0 件商品</span>
+              </div>
+              <div class="my-post-list" id="myPostsList"></div>
+            </section>
           </section>
         </div>
       </section>
@@ -1043,6 +1135,11 @@
     const publishedCount = document.getElementById("publishedCount");
     const messageEmptyState = document.getElementById("messageEmptyState");
     const conversationList = document.getElementById("conversationList");
+    const toggleMyPostsButton = document.getElementById("toggleMyPostsButton");
+    const myPostsToggleMark = document.getElementById("myPostsToggleMark");
+    const myPostsPanel = document.getElementById("myPostsPanel");
+    const myPostsCount = document.getElementById("myPostsCount");
+    const myPostsList = document.getElementById("myPostsList");
     const categoryEntries = [
       { label: "教材资料", mark: "书" },
       { label: "设计生专区", mark: "设" },
@@ -1056,6 +1153,7 @@
     let currentDetailId = "";
     let currentDetailProduct = null;
     let conversations = [];
+    let myPostsVisible = false;
 
     function normalizeProducts(payload) {
       if (Array.isArray(payload)) return payload;
@@ -1209,6 +1307,36 @@
 
     function renderProfileView() {
       publishedCount.textContent = `${allProducts.length} 件`;
+      myPostsPanel.hidden = !myPostsVisible;
+      myPostsToggleMark.textContent = myPostsVisible ? "收起" : "展开";
+      myPostsCount.textContent = `${allProducts.length} 件商品`;
+
+      if (!allProducts.length) {
+        myPostsList.innerHTML = '<div class="my-post-empty">还没有发布商品，点击底部发布按钮添加闲置物品。</div>';
+        return;
+      }
+
+      myPostsList.innerHTML = allProducts.map((product) => {
+        const id = productId(product);
+        const name = field(product, ["name", "title", "productName"], "未命名商品");
+        const price = field(product, ["price", "amount"], "面议");
+        const category = productCategory(product);
+        const location = field(product, ["location", "place", "campus", "address"], "校内");
+
+        return `
+          <article class="my-post-card">
+            <div class="my-post-top">
+              <h4 class="my-post-name">${escapeHtml(name)}</h4>
+              <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
+            </div>
+            <p class="my-post-meta">
+              <span>${escapeHtml(category)}</span>
+              <span>${escapeHtml(location)}</span>
+            </p>
+            <button class="my-post-delete" type="button" data-delete-id="${escapeHtml(id)}">删除</button>
+          </article>
+        `;
+      }).join("");
     }
 
     function renderMessageView() {
@@ -1437,6 +1565,17 @@
       button.addEventListener("click", () => {
         showTab(button.dataset.tab || "home");
       });
+    });
+
+    toggleMyPostsButton.addEventListener("click", () => {
+      myPostsVisible = !myPostsVisible;
+      renderProfileView();
+    });
+
+    myPostsList.addEventListener("click", (event) => {
+      const deleteButton = event.target.closest(".my-post-delete");
+      if (!deleteButton) return;
+      deleteProduct(deleteButton.dataset.deleteId, deleteButton);
     });
 
     grid.addEventListener("click", (event) => {
