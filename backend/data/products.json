@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "title": "二手马克笔套装 60色",
+    "price": 28,
+    "category": "设计生专区",
+    "location": "教学楼A座",
+    "seller": "艺术学院 小李"
+  },
+  {
+    "id": 2,
+    "title": "Rhino 7 建模教材",
+    "price": 15,
+    "category": "教材资料",
+    "location": "图书馆门口",
+    "seller": "产品设计 王同学"
+  },
+  {
+    "id": 3,
+    "title": "台灯",
+    "price": 22,
+    "category": "宿舍生活",
+    "location": "2号宿舍楼大厅",
+    "seller": "宿舍用户 小张"
+  },
+  {
+    "id": 4,
+    "title": "小风扇",
+    "price": 18,
+    "category": "宿舍生活",
+    "location": "食堂一楼",
+    "seller": "校园用户 小陈"
+  }
+]
