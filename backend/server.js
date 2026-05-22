@@ -21,7 +21,8 @@ const defaultProducts = [
     price: 28,
     category: "设计生专区",
     location: "教学楼A座",
-    seller: "艺术学院 小李"
+    seller: "艺术学院 小李",
+    imageData: ""
   },
   {
     id: 2,
@@ -29,7 +30,8 @@ const defaultProducts = [
     price: 15,
     category: "教材资料",
     location: "图书馆门口",
-    seller: "产品设计 王同学"
+    seller: "产品设计 王同学",
+    imageData: ""
   },
   {
     id: 3,
@@ -37,7 +39,8 @@ const defaultProducts = [
     price: 22,
     category: "宿舍生活",
     location: "2号宿舍楼大厅",
-    seller: "宿舍用户 小张"
+    seller: "宿舍用户 小张",
+    imageData: ""
   },
   {
     id: 4,
@@ -45,7 +48,8 @@ const defaultProducts = [
     price: 18,
     category: "宿舍生活",
     location: "食堂一楼",
-    seller: "校园用户 小陈"
+    seller: "校园用户 小陈",
+    imageData: ""
   }
 ];
 
@@ -69,7 +73,10 @@ function loadProducts() {
     throw new Error("data/products.json must contain an array");
   }
 
-  return storedProducts;
+  return storedProducts.map((product) => ({
+    ...product,
+    imageData: typeof product.imageData === "string" ? product.imageData : ""
+  }));
 }
 
 function saveProducts() {
@@ -174,7 +181,8 @@ async function handleRequest(req, res) {
       price: body.price,
       category: body.category,
       location: body.location,
-      seller: body.seller
+      seller: body.seller,
+      imageData: typeof body.imageData === "string" ? body.imageData : ""
     };
 
     products.push(newProduct);
