@@ -539,6 +539,29 @@
       box-shadow: 0 8px 18px rgba(31, 45, 42, 0.045);
     }
 
+    .my-post-summary {
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .my-post-art {
+      min-height: 64px;
+      border-radius: 16px;
+    }
+
+    .my-post-art .product-art-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      font-size: 20px;
+    }
+
+    .my-post-art .product-art-caption {
+      display: none;
+    }
+
     .my-post-top {
       display: flex;
       align-items: flex-start;
@@ -625,8 +648,8 @@
     .product-card {
       display: flex;
       flex-direction: column;
-      min-height: 184px;
-      padding: 14px;
+      min-height: 254px;
+      padding: 10px;
       border: 1px solid var(--line);
       border-radius: 22px;
       color: inherit;
@@ -642,6 +665,115 @@
       border-color: rgba(50, 200, 109, 0.28);
     }
 
+    .product-art {
+      position: relative;
+      display: grid;
+      width: 100%;
+      min-height: 106px;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.7), transparent 3.8rem),
+        linear-gradient(135deg, #ecfff4, #d7f8e4);
+    }
+
+    .product-art::before,
+    .product-art::after {
+      position: absolute;
+      content: "";
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.48);
+    }
+
+    .product-art::before {
+      width: 82px;
+      height: 82px;
+      right: -24px;
+      top: -24px;
+    }
+
+    .product-art::after {
+      width: 54px;
+      height: 54px;
+      left: -18px;
+      bottom: -20px;
+    }
+
+    .product-art-icon {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: 58px;
+      height: 58px;
+      place-items: center;
+      border-radius: 20px;
+      font-size: 30px;
+      background: rgba(255, 255, 255, 0.74);
+      box-shadow: 0 12px 24px rgba(31, 45, 42, 0.08);
+    }
+
+    .product-art-caption {
+      position: absolute;
+      left: 10px;
+      bottom: 9px;
+      z-index: 1;
+      max-width: calc(100% - 20px);
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 11px;
+      font-weight: 900;
+      background: rgba(255, 255, 255, 0.72);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-art--books {
+      background:
+        radial-gradient(circle at 82% 20%, rgba(255, 255, 255, 0.74), transparent 4.2rem),
+        linear-gradient(135deg, #f5fff9 0%, #d8f8e4 55%, #b9efcb 100%);
+    }
+
+    .product-art--design {
+      background:
+        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.74), transparent 4rem),
+        linear-gradient(135deg, #f8fff6 0%, #e5f7ff 52%, #d9f4df 100%);
+    }
+
+    .product-art--digital {
+      background:
+        radial-gradient(circle at 82% 22%, rgba(255, 255, 255, 0.62), transparent 4rem),
+        linear-gradient(135deg, #effff7 0%, #def1f7 48%, #cbeadb 100%);
+    }
+
+    .product-art--dorm {
+      background:
+        radial-gradient(circle at 18% 24%, rgba(255, 255, 255, 0.74), transparent 4rem),
+        linear-gradient(135deg, #ffffff 0%, #ecfbf2 45%, #d5f2df 100%);
+    }
+
+    .product-art--gift {
+      background:
+        radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.78), transparent 4rem),
+        linear-gradient(135deg, #f8fff7 0%, #e6faee 48%, #c4f0d5 100%);
+    }
+
+    .product-art--campus {
+      background:
+        radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.7), transparent 3.8rem),
+        linear-gradient(135deg, #ffffff 0%, #eafff2 58%, #d7f1e1 100%);
+    }
+
+    .product-card-body {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      padding: 13px 4px 4px;
+    }
+
     .product-category {
       align-self: flex-start;
       max-width: 100%;
@@ -654,7 +786,7 @@
     }
 
     .product-name {
-      margin: 13px 0 8px;
+      margin: 11px 0 8px;
       font-size: 16px;
       line-height: 1.35;
       font-weight: 900;
@@ -808,6 +940,26 @@
       background:
         radial-gradient(circle at top right, rgba(165, 235, 102, 0.3), transparent 13rem),
         var(--lime-soft);
+    }
+
+    .detail-art {
+      min-height: 146px;
+      margin-bottom: 15px;
+      border-radius: 22px;
+    }
+
+    .detail-art .product-art-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 24px;
+      font-size: 38px;
+    }
+
+    .detail-art .product-art-caption {
+      left: 13px;
+      bottom: 12px;
+      padding: 5px 10px;
+      font-size: 12px;
     }
 
     .modal-label {
@@ -1085,6 +1237,10 @@
       <div class="modal-backdrop" id="detailModal" aria-hidden="true">
         <section class="modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
           <div class="modal-header">
+            <div class="product-art detail-art product-art--campus" id="detailVisual" aria-hidden="true">
+              <span class="product-art-icon">🍋</span>
+              <span class="product-art-caption">校园闲置</span>
+            </div>
             <span class="modal-label" id="detailCategory">商品详情</span>
             <h2 class="modal-title" id="detailTitle">正在加载...</h2>
             <p class="modal-price" id="detailPrice"></p>
@@ -1153,6 +1309,7 @@
     const searchInput = document.getElementById("searchInput");
     const categoryTabs = document.querySelectorAll(".category-tab");
     const detailModal = document.getElementById("detailModal");
+    const detailVisual = document.getElementById("detailVisual");
     const detailCategory = document.getElementById("detailCategory");
     const detailTitle = document.getElementById("detailTitle");
     const detailPrice = document.getElementById("detailPrice");
@@ -1225,6 +1382,38 @@
       return field(product, ["category", "type"], "其他");
     }
 
+    function categoryVisual(category) {
+      const visuals = {
+        教材资料: { className: "product-art--books", icon: "📚", caption: "书本 · 文具" },
+        设计生专区: { className: "product-art--design", icon: "🎨", caption: "画笔 · 色卡" },
+        数码电子: { className: "product-art--digital", icon: "💻", caption: "设备 · 屏幕" },
+        宿舍生活: { className: "product-art--dorm", icon: "🧺", caption: "宿舍 · 生活" },
+        免费赠送: { className: "product-art--gift", icon: "🎁", caption: "礼物 · 分享" }
+      };
+      return visuals[category] || { className: "product-art--campus", icon: "🍋", caption: "校园闲置" };
+    }
+
+    function renderProductArt(category, extraClass = "") {
+      const visual = categoryVisual(category);
+      const className = ["product-art", visual.className, extraClass].filter(Boolean).join(" ");
+
+      return `
+        <div class="${className}" aria-hidden="true">
+          <span class="product-art-icon">${visual.icon}</span>
+          <span class="product-art-caption">${escapeHtml(visual.caption)}</span>
+        </div>
+      `;
+    }
+
+    function setDetailVisual(category) {
+      const visual = categoryVisual(category);
+      detailVisual.className = `product-art detail-art ${visual.className}`;
+      detailVisual.innerHTML = `
+        <span class="product-art-icon">${visual.icon}</span>
+        <span class="product-art-caption">${escapeHtml(visual.caption)}</span>
+      `;
+    }
+
     function formatPrice(value) {
       if (value === "面议") return value;
       const number = Number(value);
@@ -1287,15 +1476,18 @@
 
         return `
           <article class="product-card" data-product-id="${escapeHtml(id)}" role="button" tabindex="0" aria-label="查看${escapeHtml(name)}详情">
-            <span class="product-category">${escapeHtml(category)}</span>
-            <h3 class="product-name">${escapeHtml(name)}</h3>
-            <p class="product-price">${escapeHtml(formatPrice(price))}</p>
-            <dl class="product-meta">
-              <div>
-                <span>地点</span>
-                <span>${escapeHtml(location)}</span>
-              </div>
-            </dl>
+            ${renderProductArt(category)}
+            <div class="product-card-body">
+              <span class="product-category">${escapeHtml(category)}</span>
+              <h3 class="product-name">${escapeHtml(name)}</h3>
+              <p class="product-price">${escapeHtml(formatPrice(price))}</p>
+              <dl class="product-meta">
+                <div>
+                  <span>地点</span>
+                  <span>${escapeHtml(location)}</span>
+                </div>
+              </dl>
+            </div>
           </article>
         `;
       }).join("");
@@ -1364,14 +1556,19 @@
 
         return `
           <article class="my-post-card">
-            <div class="my-post-top">
-              <h4 class="my-post-name">${escapeHtml(name)}</h4>
-              <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
+            <div class="my-post-summary">
+              ${renderProductArt(category, "my-post-art")}
+              <div>
+                <div class="my-post-top">
+                  <h4 class="my-post-name">${escapeHtml(name)}</h4>
+                  <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
+                </div>
+                <p class="my-post-meta">
+                  <span>${escapeHtml(category)}</span>
+                  <span>${escapeHtml(location)}</span>
+                </p>
+              </div>
             </div>
-            <p class="my-post-meta">
-              <span>${escapeHtml(category)}</span>
-              <span>${escapeHtml(location)}</span>
-            </p>
             <button class="my-post-delete" type="button" data-delete-id="${escapeHtml(id)}">删除</button>
           </article>
         `;
@@ -1444,6 +1641,7 @@
     }
 
     function setLoadingDetail() {
+      setDetailVisual("其他");
       detailCategory.textContent = "商品详情";
       detailTitle.textContent = "正在加载...";
       detailPrice.textContent = "";
@@ -1462,6 +1660,7 @@
       const location = field(product, ["location", "place", "campus", "address"], "校内");
       const seller = field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学");
 
+      setDetailVisual(category);
       detailCategory.textContent = category;
       detailTitle.textContent = name;
       detailPrice.textContent = formatPrice(price);
@@ -1488,6 +1687,7 @@
     function renderDetailError() {
       currentDetailId = "";
       currentDetailProduct = null;
+      setDetailVisual("其他");
       detailCategory.textContent = "商品详情";
       detailTitle.textContent = "加载失败";
       detailPrice.textContent = "";
