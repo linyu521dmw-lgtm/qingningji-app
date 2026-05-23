@@ -15,6 +15,9 @@ const categories = [
   { id: 5, name: "免费赠送" }
 ];
 
+const productStatuses = ["在售", "已预定", "已出"];
+const defaultProductStatus = "在售";
+
 const defaultProducts = [
   {
     id: 1,
@@ -23,6 +26,7 @@ const defaultProducts = [
     category: "设计生专区",
     location: "教学楼A座",
     seller: "艺术学院 小李",
+    status: defaultProductStatus,
     imageData: ""
   },
   {
@@ -32,6 +36,7 @@ const defaultProducts = [
     category: "教材资料",
     location: "图书馆门口",
     seller: "产品设计 王同学",
+    status: defaultProductStatus,
     imageData: ""
   },
   {
@@ -41,6 +46,7 @@ const defaultProducts = [
     category: "宿舍生活",
     location: "2号宿舍楼大厅",
     seller: "宿舍用户 小张",
+    status: defaultProductStatus,
     imageData: ""
   },
   {
@@ -50,6 +56,7 @@ const defaultProducts = [
     category: "宿舍生活",
     location: "食堂一楼",
     seller: "校园用户 小陈",
+    status: defaultProductStatus,
     imageData: ""
   }
 ];
@@ -71,6 +78,7 @@ function normalizeProducts(storedProducts) {
 
   return storedProducts.map((product) => ({
     ...product,
+    status: productStatuses.includes(product.status) ? product.status : defaultProductStatus,
     imageData: typeof product.imageData === "string" ? product.imageData : ""
   }));
 }
@@ -92,11 +100,12 @@ function saveProducts() {
 }
 
 const products = loadProducts();
+saveProducts();
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json; charset=utf-8"
   });
@@ -202,6 +211,7 @@ async function handleRequest(req, res) {
       category: body.category,
       location: body.location,
       seller: body.seller,
+      status: defaultProductStatus,
       imageData: typeof body.imageData === "string" ? body.imageData : ""
     };
 
@@ -212,6 +222,40 @@ async function handleRequest(req, res) {
   }
 
   const productMatch = pathname.match(/^\/api\/products\/(\d+)$/);
+  const productStatusMatch = pathname.match(/^\/api\/products\/(\d+)\/status$/);
+
+  if (req.method === "PATCH" && productStatusMatch) {
+    let body;
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    if (!productStatuses.includes(body.status)) {
+      sendJson(res, 400, {
+        error: "商品状态不合法",
+        allowedStatuses: productStatuses
+      });
+      return;
+    }
+
+    const productId = Number(productStatusMatch[1]);
+    const product = products.find((item) => item.id === productId);
+
+    if (!product) {
+      sendJson(res, 404, { error: "商品不存在" });
+      return;
+    }
+
+    product.status = body.status;
+    saveProducts();
+    sendJson(res, 200, { data: product });
+    return;
+  }
+
   if (req.method === "GET" && productMatch) {
     const productId = Number(productMatch[1]);
     const product = products.find((item) => item.id === productId);
@@ -240,7 +284,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/reset-demo-products"].includes(pathname) || productMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

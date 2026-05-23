@@ -218,6 +218,7 @@
     .category-card:active,
     .menu-item:active,
     .my-post-delete:active,
+    .my-post-status-button:active,
     .favorite-button:active,
     .favorite-remove:active {
       transform: scale(0.98);
@@ -671,6 +672,31 @@
       background: var(--lime-soft);
     }
 
+    .my-post-status-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .my-post-status-button {
+      min-height: 27px;
+      padding: 0 9px;
+      border: 1px solid rgba(50, 200, 109, 0.18);
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 11px;
+      font-weight: 900;
+      background: var(--lime-soft);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .my-post-status-button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     .my-post-empty,
     .favorite-empty {
       padding: 18px;
@@ -757,6 +783,12 @@
     .product-card:active {
       transform: scale(0.99);
       border-color: rgba(50, 200, 109, 0.28);
+    }
+
+    .product-card.is-sold,
+    .favorite-card.is-sold,
+    .my-post-card.is-sold {
+      opacity: 0.58;
     }
 
     .favorite-button {
@@ -930,6 +962,40 @@
       background: var(--lime-soft);
     }
 
+    .product-tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .product-status {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 900;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .product-status--available {
+      color: #14753c;
+      background: #dcfce7;
+    }
+
+    .product-status--reserved {
+      color: #a35400;
+      background: #fff1d6;
+    }
+
+    .product-status--sold {
+      color: #68706d;
+      background: #eef1ef;
+    }
+
     .product-name {
       margin: 8px 0 6px;
       font-size: 16px;
@@ -1003,7 +1069,7 @@
 
     .bottom-nav {
       position: absolute;
-      z-index: 9999;
+      z-index: 9000;
       left: 0;
       right: 0;
       bottom: 0;
@@ -1089,6 +1155,10 @@
       display: flex;
     }
 
+    #detailModal {
+      z-index: 10000;
+    }
+
     .modal {
       width: 100%;
       overflow: hidden;
@@ -1096,6 +1166,14 @@
       border-radius: 26px;
       background: white;
       box-shadow: 0 18px 44px rgba(31, 45, 42, 0.2);
+    }
+
+    #detailModal .modal {
+      position: relative;
+      z-index: 10001;
+      max-height: calc(100% - 28px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
 
     .modal-header {
@@ -1153,6 +1231,10 @@
 
     .modal-body {
       padding: 18px 20px 4px;
+    }
+
+    #detailModal .modal-body {
+      padding-bottom: 24px;
     }
 
     .detail-list {
@@ -1288,7 +1370,12 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      position: sticky;
+      bottom: 0;
       padding-top: 14px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      border-top: 1px solid #edf2ef;
+      background: white;
     }
 
     #detailModal .modal-button.primary {
@@ -1606,6 +1693,8 @@
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
     const COMPRESSED_IMAGE_TYPE = "image/jpeg";
     const COMPRESSED_IMAGE_QUALITY = 0.7;
+    const PRODUCT_STATUSES = ["在售", "已预定", "已出"];
+    const DEFAULT_PRODUCT_STATUS = "在售";
     const categoryEntries = [
       { label: "教材资料", mark: "书" },
       { label: "设计生专区", mark: "设" },
@@ -1659,6 +1748,21 @@
 
     function productImageData(product) {
       return field(product, ["imageData"], "");
+    }
+
+    function productStatus(product) {
+      const status = field(product, ["status"], DEFAULT_PRODUCT_STATUS);
+      return PRODUCT_STATUSES.includes(status) ? status : DEFAULT_PRODUCT_STATUS;
+    }
+
+    function productStatusClass(status) {
+      if (status === "已预定") return "product-status--reserved";
+      if (status === "已出") return "product-status--sold";
+      return "product-status--available";
+    }
+
+    function renderProductStatus(status) {
+      return `<span class="product-status ${productStatusClass(status)}">${escapeHtml(status)}</span>`;
     }
 
     function readFavoriteIds() {
@@ -1782,6 +1886,7 @@
       return [
         field(product, ["title", "name", "productName"], ""),
         productCategory(product),
+        productStatus(product),
         field(product, ["location", "place", "campus", "address"], ""),
         field(product, ["seller", "sellerName", "user", "username", "owner"], "")
       ].join(" ").toLowerCase();
@@ -1823,12 +1928,16 @@
         const location = field(product, ["location", "place", "campus", "address"], "校内");
         const seller = field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学");
         const imageData = productImageData(product);
+        const status = productStatus(product);
 
         return `
-          <article class="product-card" data-product-id="${escapeHtml(id)}" role="button" tabindex="0" aria-label="查看${escapeHtml(name)}详情">
+          <article class="product-card ${status === "已出" ? "is-sold" : ""}" data-product-id="${escapeHtml(id)}" role="button" tabindex="0" aria-label="查看${escapeHtml(name)}详情">
             ${renderProductArt(category, "", imageData)}
             <div class="product-card-body">
-              <span class="product-category">${escapeHtml(category)}</span>
+              <div class="product-tag-row">
+                <span class="product-category">${escapeHtml(category)}</span>
+                ${renderProductStatus(status)}
+              </div>
               <h3 class="product-name">${escapeHtml(name)}</h3>
               <p class="product-price">${escapeHtml(formatPrice(price))}</p>
               <dl class="product-meta">
@@ -1916,15 +2025,17 @@
         const category = productCategory(product);
         const location = field(product, ["location", "place", "campus", "address"], "校内");
         const imageData = productImageData(product);
+        const status = productStatus(product);
 
         return `
-          <article class="favorite-card">
+          <article class="favorite-card ${status === "已出" ? "is-sold" : ""}">
             ${renderProductArt(category, "favorite-art", imageData)}
             <div class="favorite-content">
               <h4 class="favorite-name">${escapeHtml(name)}</h4>
               <p class="favorite-meta">
                 <span>${escapeHtml(category)}</span>
                 <span>${escapeHtml(location)}</span>
+                ${renderProductStatus(status)}
               </p>
             </div>
             <div class="favorite-actions">
@@ -1955,16 +2066,26 @@
         const category = productCategory(product);
         const location = field(product, ["location", "place", "campus", "address"], "校内");
         const imageData = productImageData(product);
+        const status = productStatus(product);
+        const statusButtons = PRODUCT_STATUSES
+          .filter((nextStatus) => nextStatus !== status)
+          .map((nextStatus) => {
+            const label = nextStatus === "在售" ? "恢复在售" : `标记${nextStatus}`;
+            return `<button class="my-post-status-button" type="button" data-status-id="${escapeHtml(id)}" data-next-status="${escapeHtml(nextStatus)}">${escapeHtml(label)}</button>`;
+          })
+          .join("");
 
         return `
-          <article class="my-post-card">
+          <article class="my-post-card ${status === "已出" ? "is-sold" : ""}">
             ${renderProductArt(category, "my-post-art", imageData)}
             <div class="my-post-info">
               <h4 class="my-post-name">${escapeHtml(name)}</h4>
               <p class="my-post-meta">
                 <span>${escapeHtml(category)}</span>
                 <span>${escapeHtml(location)}</span>
+                ${renderProductStatus(status)}
               </p>
+              <div class="my-post-status-controls">${statusButtons}</div>
             </div>
             <div class="my-post-actions">
               <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
@@ -2000,6 +2121,7 @@
 
     function contactCurrentSeller() {
       if (!currentDetailProduct || !currentDetailId) return;
+      if (productStatus(currentDetailProduct) === "已出") return;
 
       const product = currentDetailProduct;
       const conversation = {
@@ -2101,6 +2223,7 @@
       detailPrice.textContent = "";
       detailBody.innerHTML = '<p class="modal-error">正在获取商品详情</p>';
       contactSellerButton.disabled = true;
+      contactSellerButton.textContent = "联系卖家";
       detailFavoriteButton.disabled = true;
       detailFavoriteButton.dataset.favoriteId = "";
       detailFavoriteButton.textContent = "♡ 收藏";
@@ -2118,6 +2241,8 @@
       const location = field(product, ["location", "place", "campus", "address"], "校内");
       const seller = field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学");
       const imageData = productImageData(product);
+      const status = productStatus(product);
+      const isSold = status === "已出";
 
       setDetailVisual(category, imageData);
       detailCategory.textContent = category;
@@ -2125,6 +2250,10 @@
       detailPrice.textContent = formatPrice(price);
       detailBody.innerHTML = `
         <dl class="detail-list">
+          <div class="detail-row">
+            <dt>状态</dt>
+            <dd>${renderProductStatus(status)}</dd>
+          </div>
           <div class="detail-row">
             <dt>分类</dt>
             <dd>${escapeHtml(category)}</dd>
@@ -2139,7 +2268,8 @@
           </div>
         </dl>
       `;
-      contactSellerButton.disabled = false;
+      contactSellerButton.disabled = isSold;
+      contactSellerButton.textContent = isSold ? "已出，无法联系" : "联系卖家";
       detailFavoriteButton.disabled = !currentDetailId;
       detailFavoriteButton.dataset.favoriteId = currentDetailId;
       updateFavoriteButtons();
@@ -2155,6 +2285,7 @@
       detailPrice.textContent = "";
       detailBody.innerHTML = '<p class="modal-error">商品详情加载失败，请确认后端已启动</p>';
       contactSellerButton.disabled = true;
+      contactSellerButton.textContent = "联系卖家";
       detailFavoriteButton.disabled = true;
       detailFavoriteButton.dataset.favoriteId = "";
       detailFavoriteButton.textContent = "♡ 收藏";
@@ -2208,6 +2339,34 @@
         closeDetailModal();
       } catch (error) {
         alert("删除失败，请确认后端已启动");
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function updateProductStatus(id, nextStatus, button) {
+      if (!id || !PRODUCT_STATUSES.includes(nextStatus)) {
+        alert("状态修改失败，请确认商品和状态有效");
+        return;
+      }
+
+      if (button) button.disabled = true;
+
+      try {
+        const response = await fetch(`${API_URL}/${encodeURIComponent(id)}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ status: nextStatus })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        await loadProducts();
+      } catch (error) {
+        alert("状态修改失败，请确认后端已启动");
         if (button) button.disabled = false;
       }
     }
@@ -2309,6 +2468,12 @@
     });
 
     myPostsList.addEventListener("click", (event) => {
+      const statusButton = event.target.closest(".my-post-status-button");
+      if (statusButton) {
+        updateProductStatus(statusButton.dataset.statusId, statusButton.dataset.nextStatus, statusButton);
+        return;
+      }
+
       const deleteButton = event.target.closest(".my-post-delete");
       if (!deleteButton) return;
       deleteProduct(deleteButton.dataset.deleteId, deleteButton);
