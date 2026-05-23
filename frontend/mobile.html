@@ -256,35 +256,35 @@
     .content {
       flex: 1;
       overflow-y: auto;
-      padding: 6px 15px 124px;
+      padding: 6px 15px 132px;
     }
 
     .page-view {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 16px 124px;
+      padding: 24px 16px 132px;
     }
 
     .page-title {
       margin: 0 0 16px;
-      font-size: 24px;
+      font-size: 27px;
       line-height: 1.2;
       letter-spacing: 0;
     }
 
     .category-list {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
     .category-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: grid;
+      align-content: space-between;
       gap: 14px;
       width: 100%;
-      min-height: 72px;
-      padding: 16px;
+      min-height: 132px;
+      padding: 15px;
       border: 1px solid var(--line);
       border-radius: 20px;
       color: var(--text);
@@ -296,7 +296,8 @@
 
     .category-card strong {
       display: block;
-      font-size: 16px;
+      font-size: 17px;
+      line-height: 1.25;
     }
 
     .category-card span {
@@ -315,6 +316,7 @@
       color: var(--lime-dark);
       font-weight: 900;
       background: var(--lime-soft);
+      justify-self: end;
     }
 
     .empty-state {
@@ -517,7 +519,7 @@
 
     .panel-title-row h3 {
       margin: 0;
-      font-size: 17px;
+      font-size: 18px;
       line-height: 1.2;
     }
 
@@ -533,29 +535,50 @@
       gap: 12px;
     }
 
-    .my-post-card,
     .favorite-card {
-      display: grid;
-      gap: 12px;
-      padding: 15px;
+      position: relative;
+      display: block;
+      min-height: 104px;
+      padding: 14px;
       border: 1px solid var(--line);
       border-radius: 20px;
       background: #ffffff;
       box-shadow: 0 8px 18px rgba(31, 45, 42, 0.045);
     }
 
-    .my-post-summary,
-    .favorite-summary {
+    .my-post-card {
       display: grid;
-      grid-template-columns: 64px minmax(0, 1fr);
+      grid-template-columns: 84px minmax(0, 1fr) auto;
       gap: 12px;
-      align-items: start;
+      align-items: stretch;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #ffffff;
+      box-shadow: 0 8px 18px rgba(31, 45, 42, 0.045);
     }
 
-    .my-post-art,
+    .favorite-summary {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
     .favorite-art {
-      min-height: 64px;
+      flex: 0 0 72px;
+      width: 72px;
+      min-height: 72px;
+      border-radius: 17px;
+    }
+
+    .my-post-art {
+      flex: 0 0 84px;
+      width: 84px;
+      height: 84px;
+      min-height: 84px;
       border-radius: 16px;
+      overflow: hidden;
     }
 
     .my-post-art .product-art-icon,
@@ -571,7 +594,6 @@
       display: none;
     }
 
-    .my-post-top,
     .favorite-top {
       display: flex;
       align-items: flex-start;
@@ -579,31 +601,74 @@
       gap: 12px;
     }
 
-    .my-post-name,
+    .my-post-info {
+      min-width: 0;
+    }
+
     .favorite-name {
       margin: 0;
+      padding-right: 2px;
       font-size: 15.5px;
       font-weight: 900;
       line-height: 1.35;
       word-break: break-word;
     }
 
-    .my-post-price,
+    .my-post-name {
+      display: -webkit-box;
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.35;
+      word-break: break-word;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
     .favorite-price {
       flex: 0 0 auto;
       color: var(--lime-dark);
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 900;
     }
 
-    .my-post-meta,
+    .my-post-actions {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 58px;
+    }
+
+    .my-post-price {
+      color: var(--lime-dark);
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+
     .favorite-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin: 0;
+      gap: 6px;
+      margin: 9px 0 28px;
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11.5px;
+      font-weight: 800;
+    }
+
+    .my-post-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 11.5px;
       font-weight: 800;
     }
 
@@ -614,21 +679,36 @@
       background: var(--lime-soft);
     }
 
-    .my-post-delete,
     .favorite-remove {
-      justify-self: end;
-      min-height: 34px;
-      padding: 0 13px;
-      border: 0;
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      min-height: 27px;
+      padding: 0 10px;
+      border: 1px solid rgba(224, 90, 66, 0.16);
       border-radius: 999px;
-      color: var(--danger);
-      font-size: 13px;
+      color: #b85a48;
+      font-size: 11.5px;
       font-weight: 900;
-      background: #fff1ed;
+      background: #fff8f5;
       cursor: pointer;
     }
 
+    .my-post-delete {
+      min-height: 27px;
+      padding: 0 10px;
+      border: 1px solid rgba(224, 90, 66, 0.16);
+      border-radius: 999px;
+      color: #b85a48;
+      font-size: 11.5px;
+      font-weight: 900;
+      background: #fff8f5;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
     .favorite-remove {
+      border-color: rgba(50, 200, 109, 0.18);
       color: var(--lime-dark);
       background: var(--lime-soft);
     }
@@ -684,25 +764,26 @@
 
     .product-section-head h2 {
       margin: 0;
-      font-size: 19px;
+      font-size: 18px;
       line-height: 1.2;
       letter-spacing: 0;
     }
 
     .product-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 13px;
+      grid-template-columns: 1fr;
+      gap: 12px;
     }
 
     .product-card {
       display: flex;
       position: relative;
-      flex-direction: column;
-      min-height: 254px;
-      padding: 10px;
+      align-items: stretch;
+      gap: 13px;
+      min-height: 122px;
+      padding: 14px;
       border: 1px solid var(--line);
-      border-radius: 22px;
+      border-radius: 20px;
       color: inherit;
       text-align: left;
       background: var(--card);
@@ -734,8 +815,10 @@
     }
 
     .product-favorite-button {
-      align-self: flex-end;
-      margin-top: 4px;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 2;
     }
 
     .favorite-button.active {
@@ -748,8 +831,9 @@
     .product-art {
       position: relative;
       display: grid;
-      width: 100%;
-      min-height: 106px;
+      flex: 0 0 92px;
+      width: 92px;
+      min-height: 92px;
       place-items: center;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.78);
@@ -802,11 +886,11 @@
       position: relative;
       z-index: 1;
       display: grid;
-      width: 58px;
-      height: 58px;
+      width: 52px;
+      height: 52px;
       place-items: center;
-      border-radius: 20px;
-      font-size: 30px;
+      border-radius: 18px;
+      font-size: 27px;
       background: rgba(255, 255, 255, 0.74);
       box-shadow: 0 12px 24px rgba(31, 45, 42, 0.08);
     }
@@ -868,61 +952,63 @@
       display: flex;
       flex: 1;
       flex-direction: column;
-      padding: 13px 4px 4px;
+      min-width: 0;
+      padding: 1px 36px 0 0;
     }
 
     .product-category {
       align-self: flex-start;
       max-width: 100%;
-      padding: 5px 8px;
+      padding: 4px 8px;
       border-radius: 999px;
       color: var(--lime-dark);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 800;
       background: var(--lime-soft);
     }
 
     .product-name {
-      margin: 11px 0 8px;
+      margin: 8px 0 6px;
       font-size: 16px;
-      line-height: 1.35;
+      line-height: 1.3;
       font-weight: 900;
       word-break: break-word;
     }
 
     .product-price {
-      margin: 0 0 12px;
+      margin: 0 0 8px;
       color: var(--lime-dark);
-      font-size: 22px;
+      font-size: 20px;
+      line-height: 1.1;
       font-weight: 900;
     }
 
     .product-meta {
-      display: grid;
-      gap: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 8px;
       margin: 0;
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
+      font-size: 11.5px;
+      line-height: 1.3;
+      font-weight: 750;
     }
 
     .product-meta div {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #edf2ef;
+      display: inline-flex;
+      min-width: 0;
+      gap: 4px;
     }
 
     .product-meta span:last-child {
       min-width: 0;
-      color: var(--text);
+      color: #53625e;
       font-weight: 700;
-      text-align: right;
       word-break: break-word;
     }
 
     .detail-delete-button {
+      display: none;
       flex: 0 0 auto;
       color: var(--danger);
       background: #fff1ed;
@@ -960,8 +1046,9 @@
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       align-items: end;
-      min-height: 78px;
-      padding: 9px 12px 12px;
+      height: 82px;
+      min-height: 82px;
+      padding: 10px 12px 12px;
       border-top: 1px solid var(--line);
       background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(12px);
@@ -971,6 +1058,7 @@
       display: grid;
       place-items: center;
       gap: 3px;
+      min-width: 0;
       border: 0;
       color: var(--muted);
       font-size: 11px;
@@ -982,6 +1070,7 @@
 
     .nav-button.active {
       color: var(--lime-dark);
+      font-weight: 900;
     }
 
     .nav-button.active .nav-icon {
@@ -1008,12 +1097,12 @@
 
     .publish-plus {
       display: grid;
-      width: 58px;
-      height: 58px;
+      width: 54px;
+      height: 54px;
       place-items: center;
       border-radius: 50%;
       color: white;
-      font-size: 34px;
+      font-size: 32px;
       font-weight: 600;
       line-height: 1;
       background: linear-gradient(135deg, var(--lime), var(--lime-dark));
@@ -1053,7 +1142,8 @@
     }
 
     .detail-art {
-      min-height: 146px;
+      width: 100%;
+      min-height: 188px;
       margin-bottom: 15px;
       border-radius: 22px;
     }
@@ -1085,7 +1175,7 @@
 
     .modal-title {
       margin: 0;
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1.35;
       word-break: break-word;
     }
@@ -1093,7 +1183,7 @@
     .modal-price {
       margin: 7px 0 0;
       color: var(--lime-dark);
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 900;
     }
 
@@ -1228,6 +1318,30 @@
       display: flex;
       gap: 10px;
       padding: 16px 20px 20px;
+    }
+
+    #detailModal .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding-top: 14px;
+    }
+
+    #detailModal .modal-button.primary {
+      grid-column: 1 / -1;
+      min-height: 46px;
+      font-size: 15px;
+    }
+
+    #detailModal .detail-favorite-button,
+    #detailModal #closeDetailButton {
+      min-height: 40px;
+      font-size: 13px;
+    }
+
+    #detailModal #closeDetailButton {
+      color: var(--muted);
+      background: #f5f8f6;
     }
 
     .modal-button {
@@ -1743,6 +1857,7 @@
         const price = field(product, ["price", "amount"], "面议");
         const category = productCategory(product);
         const location = field(product, ["location", "place", "campus", "address"], "校内");
+        const seller = field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学");
         const imageData = productImageData(product);
 
         return `
@@ -1756,6 +1871,10 @@
                 <div>
                   <span>地点</span>
                   <span>${escapeHtml(location)}</span>
+                </div>
+                <div>
+                  <span>卖家</span>
+                  <span>${escapeHtml(seller)}</span>
                 </div>
               </dl>
             </div>
@@ -1877,20 +1996,18 @@
 
         return `
           <article class="my-post-card">
-            <div class="my-post-summary">
-              ${renderProductArt(category, "my-post-art", imageData)}
-              <div>
-                <div class="my-post-top">
-                  <h4 class="my-post-name">${escapeHtml(name)}</h4>
-                  <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
-                </div>
-                <p class="my-post-meta">
-                  <span>${escapeHtml(category)}</span>
-                  <span>${escapeHtml(location)}</span>
-                </p>
-              </div>
+            ${renderProductArt(category, "my-post-art", imageData)}
+            <div class="my-post-info">
+              <h4 class="my-post-name">${escapeHtml(name)}</h4>
+              <p class="my-post-meta">
+                <span>${escapeHtml(category)}</span>
+                <span>${escapeHtml(location)}</span>
+              </p>
             </div>
-            <button class="my-post-delete" type="button" data-delete-id="${escapeHtml(id)}">删除</button>
+            <div class="my-post-actions">
+              <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
+              <button class="my-post-delete" type="button" data-delete-id="${escapeHtml(id)}">删除</button>
+            </div>
           </article>
         `;
       }).join("");
