@@ -549,10 +549,10 @@
     .favorite-card,
     .my-post-card {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       align-items: stretch;
       min-height: 112px;
-      padding: 14px;
+      padding: 13px;
       border: 1px solid var(--line);
       border-radius: 20px;
       background: #ffffff;
@@ -595,7 +595,7 @@
       overflow: hidden;
       color: var(--text);
       font-size: 15px;
-      font-weight: 700;
+      font-weight: 800;
       line-height: 1.35;
       word-break: break-word;
       -webkit-line-clamp: 2;
@@ -609,14 +609,14 @@
       flex-direction: column;
       align-items: flex-end;
       justify-content: space-between;
-      gap: 12px;
-      min-width: 64px;
+      gap: 10px;
+      min-width: 58px;
     }
 
     .favorite-price,
     .my-post-price {
       color: var(--lime-dark);
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 900;
       line-height: 1.15;
       white-space: nowrap;
@@ -626,16 +626,16 @@
     .my-post-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin: 9px 0 0;
+      gap: 5px;
+      margin: 8px 0 0;
       color: var(--muted);
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 800;
     }
 
     .my-post-meta span,
     .favorite-meta span {
-      padding: 6px 9px;
+      padding: 5px 8px;
       border-radius: 999px;
       background: var(--lime-soft);
     }
@@ -675,18 +675,18 @@
     .my-post-status-controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
+      gap: 5px;
+      margin-top: 8px;
     }
 
     .my-post-status-button {
-      min-height: 27px;
-      padding: 0 9px;
+      min-height: 24px;
+      padding: 0 7px;
       border: 1px solid rgba(50, 200, 109, 0.18);
       border-radius: 999px;
       color: var(--lime-dark);
-      font-size: 11px;
-      font-weight: 900;
+      font-size: 10.5px;
+      font-weight: 800;
       background: var(--lime-soft);
       cursor: pointer;
       white-space: nowrap;
@@ -766,9 +766,9 @@
       position: relative;
       z-index: 0;
       align-items: stretch;
-      gap: 13px;
+      gap: 12px;
       min-height: 122px;
-      padding: 14px;
+      padding: 13px;
       border: 1px solid var(--line);
       border-radius: 20px;
       color: inherit;
@@ -793,13 +793,13 @@
 
     .favorite-button {
       display: inline-grid;
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       place-items: center;
       border: 1px solid rgba(50, 200, 109, 0.2);
       border-radius: 50%;
       color: var(--lime-dark);
-      font-size: 19px;
+      font-size: 17px;
       line-height: 1;
       font-weight: 900;
       background: white;
@@ -810,8 +810,8 @@
 
     .product-favorite-button {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 11px;
+      right: 11px;
       z-index: 2;
     }
 
@@ -948,24 +948,24 @@
       flex: 1;
       flex-direction: column;
       min-width: 0;
-      padding: 1px 36px 0 0;
+      padding: 1px 30px 0 0;
     }
 
     .product-category {
       align-self: flex-start;
       max-width: 100%;
-      padding: 4px 8px;
+      padding: 3px 7px;
       border-radius: 999px;
-      color: var(--lime-dark);
-      font-size: 11.5px;
+      color: #61716c;
+      font-size: 10.5px;
       font-weight: 800;
-      background: var(--lime-soft);
+      background: #f2f7f4;
     }
 
     .product-tag-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 5px;
       align-items: center;
     }
 
@@ -973,41 +973,64 @@
       display: inline-flex;
       align-items: center;
       max-width: 100%;
-      padding: 4px 8px;
+      padding: 3px 7px;
       border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 900;
+      font-size: 10.5px;
+      font-weight: 800;
       line-height: 1.2;
       white-space: nowrap;
     }
 
     .product-status--available {
-      color: #14753c;
-      background: #dcfce7;
+      color: #247d4a;
+      background: #e8f8ef;
     }
 
     .product-status--reserved {
-      color: #a35400;
-      background: #fff1d6;
+      color: #a16012;
+      background: #fff3df;
     }
 
     .product-status--sold {
-      color: #68706d;
-      background: #eef1ef;
+      color: #6f7874;
+      background: #eef2f0;
+    }
+
+    .my-post-meta .product-status,
+    .favorite-meta .product-status {
+      padding: 5px 8px;
+    }
+
+    .my-post-meta .product-status--available,
+    .favorite-meta .product-status--available {
+      color: #247d4a;
+      background: #e8f8ef;
+    }
+
+    .my-post-meta .product-status--reserved,
+    .favorite-meta .product-status--reserved {
+      color: #a16012;
+      background: #fff3df;
+    }
+
+    .my-post-meta .product-status--sold,
+    .favorite-meta .product-status--sold {
+      color: #6f7874;
+      background: #eef2f0;
     }
 
     .product-name {
-      margin: 8px 0 6px;
-      font-size: 16px;
+      margin: 7px 0 6px;
+      font-size: 16.5px;
       line-height: 1.3;
       font-weight: 900;
       word-break: break-word;
     }
 
     .product-price {
-      margin: 0 0 8px;
+      margin: 0 0 7px;
       color: var(--lime-dark);
-      font-size: 20px;
+      font-size: 19px;
       line-height: 1.1;
       font-weight: 900;
     }
@@ -1015,10 +1038,10 @@
     .product-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px 8px;
+      gap: 4px 8px;
       margin: 0;
       color: var(--muted);
-      font-size: 11.5px;
+      font-size: 11px;
       line-height: 1.3;
       font-weight: 750;
     }
@@ -1031,7 +1054,7 @@
 
     .product-meta span:last-child {
       min-width: 0;
-      color: #53625e;
+      color: #5e6c68;
       font-weight: 700;
       word-break: break-word;
     }
@@ -1223,10 +1246,18 @@
     }
 
     .modal-price {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
       margin: 7px 0 0;
       color: var(--lime-dark);
       font-size: 24px;
       font-weight: 900;
+    }
+
+    .modal-price .product-status {
+      transform: translateY(1px);
     }
 
     .modal-body {
@@ -2247,13 +2278,9 @@
       setDetailVisual(category, imageData);
       detailCategory.textContent = category;
       detailTitle.textContent = name;
-      detailPrice.textContent = formatPrice(price);
+      detailPrice.innerHTML = `<span>${escapeHtml(formatPrice(price))}</span>${renderProductStatus(status)}`;
       detailBody.innerHTML = `
         <dl class="detail-list">
-          <div class="detail-row">
-            <dt>状态</dt>
-            <dd>${renderProductStatus(status)}</dd>
-          </div>
           <div class="detail-row">
             <dt>分类</dt>
             <dd>${escapeHtml(category)}</dd>
