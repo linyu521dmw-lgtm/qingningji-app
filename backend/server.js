@@ -256,6 +256,50 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === "PATCH" && productMatch) {
+    let body;
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    const productId = Number(productMatch[1]);
+    const product = products.find((item) => item.id === productId);
+
+    if (!product) {
+      sendJson(res, 404, { error: "商品不存在" });
+      return;
+    }
+
+    if (body.status !== undefined) {
+      if (!productStatuses.includes(body.status)) {
+        sendJson(res, 400, {
+          error: "商品状态不合法",
+          allowedStatuses: productStatuses
+        });
+        return;
+      }
+    }
+
+    const editableFields = ["title", "price", "category", "location", "seller"];
+    editableFields.forEach((field) => {
+      if (body[field] !== undefined) {
+        product[field] = body[field];
+      }
+    });
+
+    if (body.status !== undefined) {
+      product.status = body.status;
+    }
+
+    saveProducts();
+    sendJson(res, 200, { data: product });
+    return;
+  }
+
   if (req.method === "GET" && productMatch) {
     const productId = Number(productMatch[1]);
     const product = products.find((item) => item.id === productId);

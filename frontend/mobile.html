@@ -218,6 +218,7 @@
     .category-card:active,
     .menu-item:active,
     .my-post-delete:active,
+    .my-post-edit:active,
     .my-post-status-button:active,
     .favorite-button:active,
     .favorite-remove:active {
@@ -718,7 +719,8 @@
       white-space: nowrap;
     }
 
-    .my-post-delete {
+    .my-post-delete,
+    .my-post-edit {
       min-height: 27px;
       padding: 0 10px;
       border: 1px solid rgba(224, 90, 66, 0.16);
@@ -729,6 +731,12 @@
       background: #fff8f5;
       cursor: pointer;
       white-space: nowrap;
+    }
+
+    .my-post-edit {
+      border-color: rgba(50, 200, 109, 0.18);
+      color: var(--lime-dark);
+      background: var(--lime-soft);
     }
 
     .favorite-remove {
@@ -1247,7 +1255,8 @@
       z-index: 10000;
     }
 
-    #publishModal {
+    #publishModal,
+    #editModal {
       z-index: 10000;
     }
 
@@ -1268,7 +1277,8 @@
       overscroll-behavior: contain;
     }
 
-    #publishModal .modal {
+    #publishModal .modal,
+    #editModal .modal {
       position: relative;
       z-index: 10001;
       max-height: calc(100% - 28px);
@@ -1474,7 +1484,8 @@
       padding: 16px 20px 20px;
     }
 
-    #publishModal .modal-actions {
+    #publishModal .modal-actions,
+    #editModal .modal-actions {
       position: sticky;
       bottom: 0;
       padding-top: 14px;
@@ -1780,6 +1791,52 @@
           </form>
         </section>
       </div>
+
+      <div class="modal-backdrop" id="editModal" aria-hidden="true">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+          <div class="modal-header">
+            <span class="modal-label">编辑闲置</span>
+            <h2 class="modal-title" id="editTitle">修改商品信息</h2>
+          </div>
+          <form id="editForm" novalidate>
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="editProductTitle">商品名称</label>
+                <input id="editProductTitle" name="title" type="text" autocomplete="off">
+              </div>
+              <div class="form-field">
+                <label for="editProductPrice">价格</label>
+                <input id="editProductPrice" name="price" type="number" min="0" step="0.01" inputmode="decimal">
+              </div>
+              <div class="form-field">
+                <label for="editProductCategory">分类</label>
+                <select id="editProductCategory" name="category">
+                  <option value="">请选择分类</option>
+                  <option value="教材资料">教材资料</option>
+                  <option value="数码电子">数码电子</option>
+                  <option value="宿舍生活">宿舍生活</option>
+                  <option value="运动">运动</option>
+                  <option value="设计生专区">设计生专区</option>
+                  <option value="免费赠送">免费赠送</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="editProductLocation">交易地点</label>
+                <input id="editProductLocation" name="location" type="text" autocomplete="off">
+              </div>
+              <div class="form-field">
+                <label for="editProductSeller">卖家</label>
+                <input id="editProductSeller" name="seller" type="text" autocomplete="off">
+              </div>
+              <p class="form-tip" id="editTip" role="alert"></p>
+            </div>
+            <div class="modal-actions">
+              <button class="modal-button primary" id="submitEditButton" type="submit">保存修改</button>
+              <button class="modal-button secondary" id="closeEditButton" type="button">取消</button>
+            </div>
+          </form>
+        </section>
+      </div>
     </section>
   </main>
 
@@ -1810,6 +1867,16 @@
     const productImageInput = document.getElementById("productImage");
     const imagePreview = document.getElementById("imagePreview");
     const imagePreviewImg = document.getElementById("imagePreviewImg");
+    const editModal = document.getElementById("editModal");
+    const editForm = document.getElementById("editForm");
+    const editTip = document.getElementById("editTip");
+    const closeEditButton = document.getElementById("closeEditButton");
+    const submitEditButton = document.getElementById("submitEditButton");
+    const editProductTitleInput = document.getElementById("editProductTitle");
+    const editProductPriceInput = document.getElementById("editProductPrice");
+    const editProductCategoryInput = document.getElementById("editProductCategory");
+    const editProductLocationInput = document.getElementById("editProductLocation");
+    const editProductSellerInput = document.getElementById("editProductSeller");
     const quickButtons = document.querySelectorAll(".quick-button");
     const appViews = document.querySelectorAll(".app-view");
     const navButtons = document.querySelectorAll(".nav-button[data-tab]");
@@ -1852,6 +1919,7 @@
     let searchKeyword = "";
     let currentDetailId = "";
     let currentDetailProduct = null;
+    let currentEditId = "";
     let conversations = [];
     let myPostsVisible = false;
     let favoritesVisible = false;
@@ -2245,6 +2313,7 @@
             </div>
             <div class="my-post-actions">
               <span class="my-post-price">${escapeHtml(formatPrice(price))}</span>
+              <button class="my-post-edit" type="button" data-edit-id="${escapeHtml(id)}">编辑</button>
               <button class="my-post-delete" type="button" data-delete-id="${escapeHtml(id)}">删除</button>
             </div>
           </article>
@@ -2316,6 +2385,27 @@
     function closePublishModal() {
       publishModal.classList.remove("open");
       publishModal.setAttribute("aria-hidden", "true");
+    }
+
+    function openEditModal(product) {
+      currentEditId = String(productId(product) || "");
+      editTip.textContent = "";
+      editProductTitleInput.value = field(product, ["name", "title", "productName"], "");
+      editProductPriceInput.value = field(product, ["price", "amount"], "");
+      editProductCategoryInput.value = productCategory(product);
+      editProductLocationInput.value = field(product, ["location", "place", "campus", "address"], "");
+      editProductSellerInput.value = field(product, ["seller", "sellerName", "user", "username", "owner"], "");
+      editModal.classList.add("open");
+      editModal.setAttribute("aria-hidden", "false");
+      editProductTitleInput.focus();
+    }
+
+    function closeEditModal() {
+      editModal.classList.remove("open");
+      editModal.setAttribute("aria-hidden", "true");
+      currentEditId = "";
+      editTip.textContent = "";
+      editForm.reset();
     }
 
     function resetImageUpload() {
@@ -2534,6 +2624,10 @@
         allProducts = normalizeProducts(payload);
         productsLoaded = true;
         renderActiveView();
+        if (currentDetailId && detailModal.classList.contains("open")) {
+          const updatedDetail = allProducts.find((product) => String(productId(product)) === String(currentDetailId));
+          if (updatedDetail) renderDetail(updatedDetail, currentDetailId);
+        }
       } catch (error) {
         productsLoaded = false;
         statusText.textContent = "加载失败";
@@ -2626,6 +2720,13 @@
         return;
       }
 
+      const editButton = event.target.closest(".my-post-edit");
+      if (editButton) {
+        const product = allProducts.find((item) => String(productId(item)) === String(editButton.dataset.editId));
+        if (product) openEditModal(product);
+        return;
+      }
+
       const deleteButton = event.target.closest(".my-post-delete");
       if (!deleteButton) return;
       deleteProduct(deleteButton.dataset.deleteId, deleteButton);
@@ -2671,6 +2772,7 @@
     });
     closeDetailButton.addEventListener("click", closeDetailModal);
     closePublishButton.addEventListener("click", closePublishModal);
+    closeEditButton.addEventListener("click", closeEditModal);
 
     productImageInput.addEventListener("change", async () => {
       const file = productImageInput.files && productImageInput.files[0];
@@ -2716,12 +2818,81 @@
       if (event.target === publishModal) closePublishModal();
     });
 
+    editModal.addEventListener("click", (event) => {
+      if (event.target === editModal) closeEditModal();
+    });
+
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && detailModal.classList.contains("open")) {
         closeDetailModal();
       }
       if (event.key === "Escape" && publishModal.classList.contains("open")) {
         closePublishModal();
+      }
+      if (event.key === "Escape" && editModal.classList.contains("open")) {
+        closeEditModal();
+      }
+    });
+
+    editForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (!currentEditId) {
+        editTip.textContent = "商品不存在，请刷新后重试";
+        return;
+      }
+
+      const formData = new FormData(editForm);
+      const title = String(formData.get("title") || "").trim();
+      const priceText = String(formData.get("price") || "").trim();
+      const category = String(formData.get("category") || "").trim();
+      const location = String(formData.get("location") || "").trim();
+      const seller = String(formData.get("seller") || "").trim();
+      const price = Number(priceText);
+
+      if (!title) {
+        editTip.textContent = "商品名称不能为空";
+        return;
+      }
+
+      if (!priceText || !Number.isFinite(price)) {
+        editTip.textContent = "价格必须是数字";
+        return;
+      }
+
+      if (!category || !location || !seller) {
+        editTip.textContent = "请填写完整商品信息";
+        return;
+      }
+
+      submitEditButton.disabled = true;
+      editTip.textContent = "";
+
+      try {
+        const response = await fetch(`${API_URL}/${encodeURIComponent(currentEditId)}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title,
+            price,
+            category,
+            location,
+            seller
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        closeEditModal();
+        await loadProducts();
+      } catch (error) {
+        editTip.textContent = "保存失败，请确认后端已启动";
+      } finally {
+        submitEditButton.disabled = false;
       }
     });
 
