@@ -216,7 +216,9 @@
     .quick-button:active,
     .category-card:active,
     .menu-item:active,
-    .my-post-delete:active {
+    .my-post-delete:active,
+    .favorite-button:active,
+    .favorite-remove:active {
       transform: scale(0.98);
     }
 
@@ -498,7 +500,8 @@
       color: var(--muted);
     }
 
-    .my-posts-panel {
+    .my-posts-panel,
+    .favorites-panel {
       display: grid;
       gap: 13px;
       margin-top: 18px;
@@ -524,12 +527,14 @@
       font-weight: 800;
     }
 
-    .my-post-list {
+    .my-post-list,
+    .favorite-list {
       display: grid;
       gap: 12px;
     }
 
-    .my-post-card {
+    .my-post-card,
+    .favorite-card {
       display: grid;
       gap: 12px;
       padding: 15px;
@@ -539,37 +544,43 @@
       box-shadow: 0 8px 18px rgba(31, 45, 42, 0.045);
     }
 
-    .my-post-summary {
+    .my-post-summary,
+    .favorite-summary {
       display: grid;
       grid-template-columns: 64px minmax(0, 1fr);
       gap: 12px;
       align-items: start;
     }
 
-    .my-post-art {
+    .my-post-art,
+    .favorite-art {
       min-height: 64px;
       border-radius: 16px;
     }
 
-    .my-post-art .product-art-icon {
+    .my-post-art .product-art-icon,
+    .favorite-art .product-art-icon {
       width: 38px;
       height: 38px;
       border-radius: 14px;
       font-size: 20px;
     }
 
-    .my-post-art .product-art-caption {
+    .my-post-art .product-art-caption,
+    .favorite-art .product-art-caption {
       display: none;
     }
 
-    .my-post-top {
+    .my-post-top,
+    .favorite-top {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
     }
 
-    .my-post-name {
+    .my-post-name,
+    .favorite-name {
       margin: 0;
       font-size: 15.5px;
       font-weight: 900;
@@ -577,14 +588,16 @@
       word-break: break-word;
     }
 
-    .my-post-price {
+    .my-post-price,
+    .favorite-price {
       flex: 0 0 auto;
       color: var(--lime-dark);
       font-size: 17px;
       font-weight: 900;
     }
 
-    .my-post-meta {
+    .my-post-meta,
+    .favorite-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -594,13 +607,15 @@
       font-weight: 800;
     }
 
-    .my-post-meta span {
+    .my-post-meta span,
+    .favorite-meta span {
       padding: 6px 9px;
       border-radius: 999px;
       background: var(--lime-soft);
     }
 
-    .my-post-delete {
+    .my-post-delete,
+    .favorite-remove {
       justify-self: end;
       min-height: 34px;
       padding: 0 13px;
@@ -613,7 +628,13 @@
       cursor: pointer;
     }
 
-    .my-post-empty {
+    .favorite-remove {
+      color: var(--lime-dark);
+      background: var(--lime-soft);
+    }
+
+    .my-post-empty,
+    .favorite-empty {
       padding: 18px;
       border: 1px dashed rgba(50, 200, 109, 0.28);
       border-radius: 18px;
@@ -622,6 +643,17 @@
       line-height: 1.6;
       text-align: center;
       background: rgba(255, 255, 255, 0.7);
+    }
+
+    .favorite-empty h3 {
+      margin: 0;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .favorite-empty p {
+      margin: 8px 0 0;
     }
 
     .demo-reset-button {
@@ -665,6 +697,7 @@
 
     .product-card {
       display: flex;
+      position: relative;
       flex-direction: column;
       min-height: 254px;
       padding: 10px;
@@ -681,6 +714,35 @@
     .product-card:active {
       transform: scale(0.99);
       border-color: rgba(50, 200, 109, 0.28);
+    }
+
+    .favorite-button {
+      display: inline-grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid rgba(50, 200, 109, 0.2);
+      border-radius: 50%;
+      color: var(--lime-dark);
+      font-size: 19px;
+      line-height: 1;
+      font-weight: 900;
+      background: white;
+      box-shadow: 0 8px 16px rgba(31, 45, 42, 0.08);
+      cursor: pointer;
+      transition: transform 140ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .product-favorite-button {
+      align-self: flex-end;
+      margin-top: 4px;
+    }
+
+    .favorite-button.active {
+      color: white;
+      border-color: var(--lime);
+      background: var(--lime);
+      box-shadow: 0 10px 18px rgba(50, 200, 109, 0.24);
     }
 
     .product-art {
@@ -864,6 +926,19 @@
       flex: 0 0 auto;
       color: var(--danger);
       background: #fff1ed;
+    }
+
+    .detail-favorite-button {
+      flex: 0 0 auto;
+      color: var(--lime-dark);
+      background: white;
+      box-shadow: inset 0 0 0 1px rgba(50, 200, 109, 0.18);
+    }
+
+    .detail-favorite-button.active {
+      color: white;
+      background: var(--lime);
+      box-shadow: 0 10px 20px rgba(50, 200, 109, 0.22);
     }
 
     .message {
@@ -1274,7 +1349,7 @@
             </div>
             <div class="menu-list">
               <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
-              <div class="menu-item"><span>我的收藏</span><span>›</span></div>
+              <button class="menu-item" id="toggleFavoritesButton" type="button"><span>我的收藏</span><span id="favoritesToggleMark">展开</span></button>
               <div class="menu-item"><span>交易记录</span><span>›</span></div>
               <div class="menu-item"><span>个人资料</span><span>›</span></div>
               <div class="menu-item"><span>设置</span><span>›</span></div>
@@ -1285,6 +1360,13 @@
                 <span id="myPostsCount">0 件商品</span>
               </div>
               <div class="my-post-list" id="myPostsList"></div>
+            </section>
+            <section class="favorites-panel" id="favoritesPanel" hidden>
+              <div class="panel-title-row">
+                <h3>我的收藏</h3>
+                <span id="favoritesCount">0 件商品</span>
+              </div>
+              <div class="favorite-list" id="favoritesList"></div>
             </section>
             <button class="demo-reset-button" id="resetDemoButton" type="button">重置演示数据</button>
           </section>
@@ -1328,6 +1410,7 @@
           <div class="modal-body" id="detailBody"></div>
           <div class="modal-actions">
             <button class="modal-button primary" id="contactSellerButton" type="button">联系卖家</button>
+            <button class="modal-button detail-favorite-button" id="detailFavoriteButton" type="button">♡ 收藏</button>
             <button class="modal-button detail-delete-button" id="deleteDetailButton" type="button">删除商品</button>
             <button class="modal-button secondary" id="closeDetailButton" type="button">关闭</button>
           </div>
@@ -1409,6 +1492,7 @@
     const detailBody = document.getElementById("detailBody");
     const closeDetailButton = document.getElementById("closeDetailButton");
     const contactSellerButton = document.getElementById("contactSellerButton");
+    const detailFavoriteButton = document.getElementById("detailFavoriteButton");
     const deleteDetailButton = document.getElementById("deleteDetailButton");
     const openPublishButton = document.getElementById("openPublishButton");
     const publishModal = document.getElementById("publishModal");
@@ -1432,7 +1516,13 @@
     const myPostsPanel = document.getElementById("myPostsPanel");
     const myPostsCount = document.getElementById("myPostsCount");
     const myPostsList = document.getElementById("myPostsList");
+    const toggleFavoritesButton = document.getElementById("toggleFavoritesButton");
+    const favoritesToggleMark = document.getElementById("favoritesToggleMark");
+    const favoritesPanel = document.getElementById("favoritesPanel");
+    const favoritesCount = document.getElementById("favoritesCount");
+    const favoritesList = document.getElementById("favoritesList");
     const resetDemoButton = document.getElementById("resetDemoButton");
+    const FAVORITES_STORAGE_KEY = "qingningji_favorites";
     const MAX_IMAGE_WIDTH = 600;
     const MAX_IMAGE_HEIGHT = 600;
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -1452,6 +1542,8 @@
     let currentDetailProduct = null;
     let conversations = [];
     let myPostsVisible = false;
+    let favoritesVisible = false;
+    let productsLoaded = false;
     let selectedImageData = "";
     let imageUploadToken = 0;
     let isImageProcessing = false;
@@ -1489,6 +1581,60 @@
 
     function productImageData(product) {
       return field(product, ["imageData"], "");
+    }
+
+    function readFavoriteIds() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
+        if (!Array.isArray(parsed)) return [];
+        return [...new Set(parsed.map((id) => String(id)).filter(Boolean))];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function writeFavoriteIds(ids) {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...new Set(ids.map((id) => String(id)).filter(Boolean))]));
+    }
+
+    function isFavoriteProduct(id) {
+      return readFavoriteIds().includes(String(id));
+    }
+
+    function favoriteProducts() {
+      const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
+      const nextIds = readFavoriteIds().filter((id) => validIds.has(id));
+      if (productsLoaded) writeFavoriteIds(nextIds);
+      return nextIds
+        .map((id) => allProducts.find((product) => String(productId(product)) === id))
+        .filter(Boolean);
+    }
+
+    function updateFavoriteButtons() {
+      document.querySelectorAll("[data-favorite-id]").forEach((button) => {
+        const id = button.dataset.favoriteId || "";
+        const active = isFavoriteProduct(id);
+        const label = active ? "取消收藏" : "收藏";
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-pressed", String(active));
+        button.textContent = button.classList.contains("detail-favorite-button")
+          ? `${active ? "♥" : "♡"} ${label}`
+          : active ? "♥" : "♡";
+      });
+    }
+
+    function toggleFavorite(id) {
+      if (!id) return;
+      const favoriteIds = readFavoriteIds();
+      const idText = String(id);
+      const nextIds = favoriteIds.includes(idText)
+        ? favoriteIds.filter((item) => item !== idText)
+        : [...favoriteIds, idText];
+
+      writeFavoriteIds(nextIds);
+      updateFavoriteButtons();
+      renderFavoritesView();
     }
 
     function categoryVisual(category) {
@@ -1613,11 +1759,13 @@
                 </div>
               </dl>
             </div>
+            <button class="favorite-button product-favorite-button" type="button" data-favorite-id="${escapeHtml(id)}" aria-label="收藏" aria-pressed="false">♡</button>
           </article>
         `;
       }).join("");
 
       statusText.textContent = `${products.length} 件`;
+      updateFavoriteButtons();
     }
 
     function countByCategory(category) {
@@ -1661,11 +1809,58 @@
       }).join("");
     }
 
+    function renderFavoritesView() {
+      favoritesPanel.hidden = !favoritesVisible;
+      favoritesToggleMark.textContent = favoritesVisible ? "收起" : "展开";
+
+      const products = favoriteProducts();
+      favoritesCount.textContent = `${products.length} 件商品`;
+
+      if (!products.length) {
+        favoritesList.innerHTML = `
+          <div class="favorite-empty">
+            <h3>还没有收藏商品</h3>
+            <p>看到喜欢的闲置物品，可以先收藏起来。</p>
+          </div>
+        `;
+        return;
+      }
+
+      favoritesList.innerHTML = products.map((product) => {
+        const id = productId(product);
+        const name = field(product, ["name", "title", "productName"], "未命名商品");
+        const price = field(product, ["price", "amount"], "面议");
+        const category = productCategory(product);
+        const location = field(product, ["location", "place", "campus", "address"], "校内");
+        const imageData = productImageData(product);
+
+        return `
+          <article class="favorite-card">
+            <div class="favorite-summary">
+              ${renderProductArt(category, "favorite-art", imageData)}
+              <div>
+                <div class="favorite-top">
+                  <h4 class="favorite-name">${escapeHtml(name)}</h4>
+                  <span class="favorite-price">${escapeHtml(formatPrice(price))}</span>
+                </div>
+                <p class="favorite-meta">
+                  <span>${escapeHtml(category)}</span>
+                  <span>${escapeHtml(location)}</span>
+                </p>
+              </div>
+            </div>
+            <button class="favorite-remove" type="button" data-remove-favorite-id="${escapeHtml(id)}">取消收藏</button>
+          </article>
+        `;
+      }).join("");
+    }
+
     function renderProfileView() {
       publishedCount.textContent = `${allProducts.length} 件`;
       myPostsPanel.hidden = !myPostsVisible;
       myPostsToggleMark.textContent = myPostsVisible ? "收起" : "展开";
       myPostsCount.textContent = `${allProducts.length} 件商品`;
+      renderFavoritesView();
 
       if (!allProducts.length) {
         myPostsList.innerHTML = '<div class="my-post-empty">还没有发布商品，点击底部发布按钮添加闲置物品。</div>';
@@ -1827,6 +2022,10 @@
       detailPrice.textContent = "";
       detailBody.innerHTML = '<p class="modal-error">正在获取商品详情</p>';
       contactSellerButton.disabled = true;
+      detailFavoriteButton.disabled = true;
+      detailFavoriteButton.dataset.favoriteId = "";
+      detailFavoriteButton.textContent = "♡ 收藏";
+      detailFavoriteButton.classList.remove("active");
       deleteDetailButton.disabled = true;
       openDetailModal();
     }
@@ -1862,6 +2061,9 @@
         </dl>
       `;
       contactSellerButton.disabled = false;
+      detailFavoriteButton.disabled = !currentDetailId;
+      detailFavoriteButton.dataset.favoriteId = currentDetailId;
+      updateFavoriteButtons();
       deleteDetailButton.disabled = !currentDetailId;
     }
 
@@ -1874,6 +2076,10 @@
       detailPrice.textContent = "";
       detailBody.innerHTML = '<p class="modal-error">商品详情加载失败，请确认后端已启动</p>';
       contactSellerButton.disabled = true;
+      detailFavoriteButton.disabled = true;
+      detailFavoriteButton.dataset.favoriteId = "";
+      detailFavoriteButton.textContent = "♡ 收藏";
+      detailFavoriteButton.classList.remove("active");
       deleteDetailButton.disabled = true;
       openDetailModal();
     }
@@ -1936,8 +2142,10 @@
 
         const payload = await response.json();
         allProducts = normalizeProducts(payload);
+        productsLoaded = true;
         renderActiveView();
       } catch (error) {
+        productsLoaded = false;
         statusText.textContent = "加载失败";
         grid.innerHTML = '<div class="message">后端服务未启动，请先运行 localhost:3001</div>';
         renderCategoryView();
@@ -2016,15 +2224,33 @@
       renderProfileView();
     });
 
+    toggleFavoritesButton.addEventListener("click", () => {
+      favoritesVisible = !favoritesVisible;
+      renderProfileView();
+    });
+
     myPostsList.addEventListener("click", (event) => {
       const deleteButton = event.target.closest(".my-post-delete");
       if (!deleteButton) return;
       deleteProduct(deleteButton.dataset.deleteId, deleteButton);
     });
 
+    favoritesList.addEventListener("click", (event) => {
+      const removeButton = event.target.closest(".favorite-remove");
+      if (!removeButton) return;
+      toggleFavorite(removeButton.dataset.removeFavoriteId);
+    });
+
     resetDemoButton.addEventListener("click", resetDemoProducts);
 
     grid.addEventListener("click", (event) => {
+      const favoriteButton = event.target.closest(".favorite-button");
+      if (favoriteButton) {
+        event.stopPropagation();
+        toggleFavorite(favoriteButton.dataset.favoriteId);
+        return;
+      }
+
       const card = event.target.closest(".product-card");
       if (!card) return;
       loadProductDetail(card.dataset.productId);
@@ -2032,6 +2258,7 @@
 
     grid.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest(".favorite-button")) return;
       const card = event.target.closest(".product-card");
       if (!card) return;
       event.preventDefault();
@@ -2040,6 +2267,9 @@
 
     openPublishButton.addEventListener("click", openPublishModal);
     contactSellerButton.addEventListener("click", contactCurrentSeller);
+    detailFavoriteButton.addEventListener("click", () => {
+      toggleFavorite(currentDetailId);
+    });
     deleteDetailButton.addEventListener("click", () => {
       deleteProduct(currentDetailId, deleteDetailButton);
     });
