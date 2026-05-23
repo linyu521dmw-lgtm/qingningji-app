@@ -26,6 +26,8 @@ node server.js
 
 后端启动时会优先读取该文件中的商品列表；如果文件不存在，会自动创建并写入默认商品数据。通过 `POST /api/products` 新发布的商品会写回 `data/products.json`，后端重启后仍会保留。
 
+演示商品数据保存在 `data/demoProducts.json`。调用 `POST /api/reset-demo-products` 会用该文件覆盖 `data/products.json`，用于清理测试商品并恢复课程展示数据。
+
 ## 接口
 
 - `GET /health`
@@ -34,6 +36,7 @@ node server.js
 - `GET /api/products/:id`
 - `POST /api/products`
 - `DELETE /api/products/:id`
+- `POST /api/reset-demo-products`
 
 ## 发布商品
 
@@ -71,4 +74,14 @@ curl -X POST http://localhost:3001/api/products \
 
 ```bash
 curl -X DELETE http://localhost:3001/api/products/1
+```
+
+## 重置演示数据
+
+`POST /api/reset-demo-products` 用于恢复干净的演示商品列表。接口会读取 `data/demoProducts.json`，覆盖写入 `data/products.json`，并返回重置后的商品列表。
+
+示例：
+
+```bash
+curl -X POST http://localhost:3001/api/reset-demo-products
 ```

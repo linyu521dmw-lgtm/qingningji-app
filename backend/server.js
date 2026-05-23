@@ -5,6 +5,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT) || 3001;
 const DATA_DIR = path.join(__dirname, "data");
 const PRODUCTS_FILE = path.join(DATA_DIR, "products.json");
+const DEMO_PRODUCTS_FILE = path.join(DATA_DIR, "demoProducts.json");
 
 const categories = [
   { id: 1, name: "教材资料" },
@@ -63,20 +64,27 @@ function ensureProductsFile() {
   }
 }
 
-function loadProducts() {
-  ensureProductsFile();
-
-  const fileContent = fs.readFileSync(PRODUCTS_FILE, "utf-8");
-  const storedProducts = JSON.parse(fileContent);
-
+function normalizeProducts(storedProducts) {
   if (!Array.isArray(storedProducts)) {
-    throw new Error("data/products.json must contain an array");
+    throw new Error("products data must contain an array");
   }
 
   return storedProducts.map((product) => ({
     ...product,
     imageData: typeof product.imageData === "string" ? product.imageData : ""
   }));
+}
+
+function readProductsFile(filePath) {
+  const fileContent = fs.readFileSync(filePath, "utf-8");
+  const storedProducts = JSON.parse(fileContent);
+  return normalizeProducts(storedProducts);
+}
+
+function loadProducts() {
+  ensureProductsFile();
+
+  return readProductsFile(PRODUCTS_FILE);
 }
 
 function saveProducts() {
@@ -151,6 +159,18 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === "POST" && pathname === "/api/reset-demo-products") {
+    try {
+      const demoProducts = readProductsFile(DEMO_PRODUCTS_FILE);
+      products.splice(0, products.length, ...demoProducts);
+      saveProducts();
+      sendJson(res, 200, { data: products });
+    } catch (error) {
+      sendJson(res, 500, { error: "重置演示数据失败" });
+    }
+    return;
+  }
+
   if (req.method === "POST" && pathname === "/api/products") {
     let body;
 
@@ -220,7 +240,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products"].includes(pathname) || productMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/reset-demo-products"].includes(pathname) || productMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }
