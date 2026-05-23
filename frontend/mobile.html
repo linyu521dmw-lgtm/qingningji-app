@@ -487,6 +487,71 @@
       background: var(--lime-soft);
     }
 
+    .weekly-flow-card {
+      margin-top: 12px;
+      padding: 15px;
+      border: 1px solid rgba(50, 200, 109, 0.12);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 10px 22px rgba(31, 45, 42, 0.055);
+    }
+
+    .weekly-flow-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .weekly-flow-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 900;
+    }
+
+    .weekly-flow-badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 11px;
+      font-weight: 900;
+      background: var(--lime-soft);
+      white-space: nowrap;
+    }
+
+    .weekly-flow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .weekly-flow-item {
+      min-width: 0;
+      padding: 9px 6px;
+      border-radius: 15px;
+      text-align: center;
+      background: #f7fbf8;
+    }
+
+    .weekly-flow-value {
+      display: block;
+      color: var(--lime-dark);
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 900;
+    }
+
+    .weekly-flow-label {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
     .menu-list {
       display: grid;
       gap: 12px;
@@ -1182,6 +1247,10 @@
       z-index: 10000;
     }
 
+    #publishModal {
+      z-index: 10000;
+    }
+
     .modal {
       width: 100%;
       overflow: hidden;
@@ -1192,6 +1261,14 @@
     }
 
     #detailModal .modal {
+      position: relative;
+      z-index: 10001;
+      max-height: calc(100% - 28px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    #publishModal .modal {
       position: relative;
       z-index: 10001;
       max-height: calc(100% - 28px);
@@ -1307,7 +1384,7 @@
     .form-grid {
       display: grid;
       gap: 12px;
-      padding: 18px 20px 0;
+      padding: 18px 20px 32px;
     }
 
     .form-field {
@@ -1395,6 +1472,15 @@
       display: flex;
       gap: 10px;
       padding: 16px 20px 20px;
+    }
+
+    #publishModal .modal-actions {
+      position: sticky;
+      bottom: 0;
+      padding-top: 14px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      border-top: 1px solid #edf2ef;
+      background: white;
     }
 
     #detailModal .modal-actions {
@@ -1543,6 +1629,30 @@
               <span>我的发布</span>
               <span id="publishedCount">0 件</span>
             </div>
+            <section class="weekly-flow-card" aria-label="本周闲置流转">
+              <div class="weekly-flow-head">
+                <h3 class="weekly-flow-title">本周闲置流转</h3>
+                <span class="weekly-flow-badge">青柠数据</span>
+              </div>
+              <div class="weekly-flow-grid">
+                <div class="weekly-flow-item">
+                  <span class="weekly-flow-value" id="weeklyPublishedCount">0</span>
+                  <span class="weekly-flow-label">已发布</span>
+                </div>
+                <div class="weekly-flow-item">
+                  <span class="weekly-flow-value" id="weeklyFavoriteCount">0</span>
+                  <span class="weekly-flow-label">已收藏</span>
+                </div>
+                <div class="weekly-flow-item">
+                  <span class="weekly-flow-value" id="weeklyAvailableCount">0</span>
+                  <span class="weekly-flow-label">在售</span>
+                </div>
+                <div class="weekly-flow-item">
+                  <span class="weekly-flow-value" id="weeklySoldCount">0</span>
+                  <span class="weekly-flow-label">已出</span>
+                </div>
+              </div>
+            </section>
             <div class="menu-list">
               <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
               <button class="menu-item" id="toggleFavoritesButton" type="button"><span>我的收藏</span><span id="favoritesToggleMark">展开</span></button>
@@ -1705,6 +1815,10 @@
     const navButtons = document.querySelectorAll(".nav-button[data-tab]");
     const categoryList = document.getElementById("categoryList");
     const publishedCount = document.getElementById("publishedCount");
+    const weeklyPublishedCount = document.getElementById("weeklyPublishedCount");
+    const weeklyFavoriteCount = document.getElementById("weeklyFavoriteCount");
+    const weeklyAvailableCount = document.getElementById("weeklyAvailableCount");
+    const weeklySoldCount = document.getElementById("weeklySoldCount");
     const messageEmptyState = document.getElementById("messageEmptyState");
     const conversationList = document.getElementById("conversationList");
     const toggleMyPostsButton = document.getElementById("toggleMyPostsButton");
@@ -2078,8 +2192,19 @@
       }).join("");
     }
 
+    function updateWeeklyFlowStats() {
+      const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
+      const favoriteCount = readFavoriteIds().filter((id) => validIds.has(id)).length;
+
+      weeklyPublishedCount.textContent = allProducts.length;
+      weeklyFavoriteCount.textContent = favoriteCount;
+      weeklyAvailableCount.textContent = allProducts.filter((product) => productStatus(product) === "在售").length;
+      weeklySoldCount.textContent = allProducts.filter((product) => productStatus(product) === "已出").length;
+    }
+
     function renderProfileView() {
       publishedCount.textContent = `${allProducts.length} 件`;
+      updateWeeklyFlowStats();
       myPostsPanel.hidden = !myPostsVisible;
       myPostsToggleMark.textContent = myPostsVisible ? "收起" : "展开";
       myPostsCount.textContent = `${allProducts.length} 件商品`;
