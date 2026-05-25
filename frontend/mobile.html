@@ -3481,6 +3481,10 @@
         });
 
         if (!response.ok) {
+          if (response.status === 403) {
+            alert("线上版本不支持重置演示数据");
+            return;
+          }
           throw new Error(`HTTP ${response.status}`);
         }
 
