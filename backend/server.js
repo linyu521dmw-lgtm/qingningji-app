@@ -25,6 +25,15 @@ const DEMO_PRODUCTS_FILE = path.join(DATA_DIR, "demoProducts.json");
 const TRANSACTIONS_FILE = path.join(DATA_DIR, "transactions.json");
 const useSupabase = supabaseStore.isEnabled();
 const store = useSupabase ? supabaseStore : sqliteStore;
+const PRODUCT_IMAGES_BUCKET = "product-images";
+const supabaseStorageClient = useSupabase
+  ? require("@supabase/supabase-js").createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    })
+  : null;
 
 const categories = [
   { id: 1, name: "教材资料" },
@@ -102,6 +111,53 @@ function readJsonBody(req) {
 
     req.on("error", reject);
   });
+}
+
+function getUploadableImageData(imageData) {
+  if (typeof imageData !== "string" || imageData.trim() === "") {
+    return null;
+  }
+
+  const match = imageData.match(/^data:image\/(png|jpe?g|webp);base64,([\s\S]+)$/i);
+  if (!match) {
+    return null;
+  }
+
+  const extension = match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+  return {
+    base64: match[2].replace(/\s/g, ""),
+    contentType: `image/${extension === "jpg" ? "jpeg" : extension}`
+  };
+}
+
+function isUploadableProductImage(imageData) {
+  return Boolean(getUploadableImageData(imageData));
+}
+
+async function uploadProductImage(imageData, productId) {
+  if (typeof imageData !== "string" || imageData.trim() === "") {
+    return "";
+  }
+
+  const uploadableImage = getUploadableImageData(imageData);
+  if (!uploadableImage || !supabaseStorageClient) {
+    return imageData;
+  }
+
+  const filePath = `products/${productId}-${Date.now()}.jpg`;
+  const { error } = await supabaseStorageClient.storage
+    .from(PRODUCT_IMAGES_BUCKET)
+    .upload(filePath, Buffer.from(uploadableImage.base64, "base64"), {
+      contentType: uploadableImage.contentType,
+      upsert: false
+    });
+
+  if (error) {
+    throw new Error(error.message || "上传商品图片失败");
+  }
+
+  const { data } = supabaseStorageClient.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(filePath);
+  return data.publicUrl || "";
 }
 
 async function handleRequest(req, res) {
@@ -184,6 +240,8 @@ async function handleRequest(req, res) {
       return;
     }
 
+    const submittedImageData = typeof body.imageData === "string" ? body.imageData : "";
+    const shouldUploadImage = useSupabase && isUploadableProductImage(submittedImageData);
     const newProduct = {
       title: body.title,
       price: body.price,
@@ -191,11 +249,21 @@ async function handleRequest(req, res) {
       location: body.location,
       seller: body.seller,
       status: defaultProductStatus,
-      imageData: typeof body.imageData === "string" ? body.imageData : ""
+      imageData: shouldUploadImage ? "" : submittedImageData
     };
 
     try {
-      sendJson(res, 201, { data: await store.createProduct(newProduct) });
+      let product = await store.createProduct(newProduct);
+
+      if (shouldUploadImage) {
+        const publicUrl = await uploadProductImage(submittedImageData, product.id);
+        product = await store.updateProduct(product.id, {
+          imageData: "",
+          imageUrl: publicUrl
+        });
+      }
+
+      sendJson(res, 201, { data: product });
     } catch (error) {
       sendJson(res, 500, { error: "创建商品失败" });
     }
@@ -287,6 +355,20 @@ async function handleRequest(req, res) {
 
     if (body.status !== undefined) {
       updates.status = body.status;
+    }
+
+    if (body.imageData !== undefined) {
+      if (useSupabase && isUploadableProductImage(body.imageData)) {
+        try {
+          updates.imageUrl = await uploadProductImage(body.imageData, productId);
+          updates.imageData = "";
+        } catch (error) {
+          sendJson(res, 500, { error: "上传商品图片失败" });
+          return;
+        }
+      } else if (!useSupabase) {
+        updates.imageData = typeof body.imageData === "string" ? body.imageData : "";
+      }
     }
 
     let product;

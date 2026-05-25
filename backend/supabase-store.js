@@ -45,7 +45,8 @@ function toCamelProduct(product) {
     location: product.location,
     seller: product.seller,
     status: normalizeStatus(product.status),
-    imageData: typeof product.image_data === "string" ? product.image_data : "",
+    imageData: product.image_url || (typeof product.image_data === "string" ? product.image_data : ""),
+    imageUrl: product.image_url || "",
     createdAt: product.created_at,
     updatedAt: product.updated_at
   };
@@ -81,6 +82,7 @@ function toSnakeProduct(product) {
     seller: product.seller || product.sellerName || product.user || product.username || product.owner || "匿名同学",
     status: normalizeStatus(product.status),
     image_data: typeof product.imageData === "string" ? product.imageData : "",
+    image_url: product.imageUrl || "",
     created_at: product.createdAt || currentTime,
     updated_at: product.updatedAt || currentTime
   };
@@ -97,6 +99,9 @@ function toSnakeProductUpdates(product) {
   if (product.status !== undefined) updates.status = normalizeStatus(product.status);
   if (product.imageData !== undefined) {
     updates.image_data = typeof product.imageData === "string" ? product.imageData : "";
+  }
+  if (product.imageUrl !== undefined) {
+    updates.image_url = typeof product.imageUrl === "string" ? product.imageUrl : "";
   }
 
   if (Object.keys(updates).length > 0) {
@@ -241,7 +246,11 @@ async function resetProducts(demoProducts) {
   const { error: deleteProductsError } = await supabase.from("products").delete().gte("id", 0);
   throwIfError(deleteProductsError);
 
-  const products = demoProducts.map(toSnakeProduct);
+  const products = demoProducts.map((product) => ({
+    ...toSnakeProduct(product),
+    image_data: "",
+    image_url: ""
+  }));
   const { data, error } = await supabase.from("products").insert(products).select("*").order("id", { ascending: true });
   throwIfError(error);
   return (data || []).map(toCamelProduct);
