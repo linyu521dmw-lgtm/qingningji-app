@@ -3216,10 +3216,6 @@
         });
 
         if (!response.ok) {
-          if (response.status === 403) {
-            alert("线上版本不支持重置演示数据");
-            return;
-          }
           throw new Error(`HTTP ${response.status}`);
         }
 
@@ -3481,10 +3477,6 @@
         });
 
         if (!response.ok) {
-          if (response.status === 403) {
-            alert("线上版本不支持重置演示数据");
-            return;
-          }
           throw new Error(`HTTP ${response.status}`);
         }
 
@@ -3582,6 +3574,17 @@
       }
     }
 
+    async function isDemoResetDisabledResponse(response) {
+      if (response.status === 403) return true;
+
+      try {
+        const payload = await response.clone().json();
+        return String(payload && payload.error || "").includes("Demo reset is disabled in production");
+      } catch (error) {
+        return false;
+      }
+    }
+
     async function resetDemoProducts() {
       const confirmed = confirm("确定要恢复演示数据吗？当前测试商品会被清除。");
       if (!confirmed) return;
@@ -3594,6 +3597,10 @@
         });
 
         if (!response.ok) {
+          if (await isDemoResetDisabledResponse(response)) {
+            alert("线上版本不支持重置演示数据");
+            return;
+          }
           throw new Error(`HTTP ${response.status}`);
         }
 
