@@ -3,7 +3,21 @@ const fs = require("fs");
 const path = require("path");
 const store = require("./sqlite-store");
 
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = process.env.PORT || 3001;
+const HOST = "0.0.0.0";
+const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:8000",
+  "http://127.0.0.1:8000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : DEFAULT_ALLOWED_ORIGINS;
 const DATA_DIR = path.join(__dirname, "data");
 const PRODUCTS_FILE = path.join(DATA_DIR, "products.json");
 const DEMO_PRODUCTS_FILE = path.join(DATA_DIR, "demoProducts.json");
@@ -42,12 +56,22 @@ store.initializeDatabase(PRODUCTS_FILE, TRANSACTIONS_FILE);
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
-    "Access-Control-Allow-Origin": "*",
+    ...corsHeaders(res.req),
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json; charset=utf-8"
   });
   res.end(JSON.stringify(payload));
+}
+
+function corsHeaders(req) {
+  const origin = req && req.headers ? req.headers.origin : "";
+  const allowOrigin = !origin || allowedOrigins.includes(origin) ? (origin || "*") : allowedOrigins[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Vary": "Origin"
+  };
 }
 
 function readJsonBody(req) {
@@ -80,14 +104,19 @@ async function handleRequest(req, res) {
   const pathname = url.pathname;
 
   if (req.method === "OPTIONS") {
-    sendJson(res, 204, {});
+    res.writeHead(204, {
+      ...corsHeaders(req),
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    });
+    res.end();
     return;
   }
 
   if (req.method === "GET" && pathname === "/health") {
     sendJson(res, 200, {
-      status: "ok",
-      app: "青柠集 backend"
+      ok: true,
+      service: "qingningji-backend"
     });
     return;
   }
@@ -268,8 +297,11 @@ async function handleRequest(req, res) {
   sendJson(res, 404, { error: "Not Found" });
 }
 
-const server = http.createServer(handleRequest);
+const server = http.createServer((req, res) => {
+  res.req = req;
+  handleRequest(req, res);
+});
 
-server.listen(PORT, () => {
-  console.log(`Qingningji backend API is running at http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Qingningji backend API is running at http://${HOST}:${PORT}`);
 });
