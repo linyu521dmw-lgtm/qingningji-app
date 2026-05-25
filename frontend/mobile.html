@@ -396,6 +396,13 @@
       gap: 12px;
     }
 
+    .conversation-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .conversation-seller {
       min-width: 0;
       margin: 0;
@@ -405,14 +412,44 @@
       word-break: break-word;
     }
 
+    .conversation-unread-dot {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 0 4px rgba(50, 200, 109, 0.12);
+    }
+
+    .conversation-meta {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .conversation-time {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .conversation-price {
       flex: 0 0 auto;
       color: var(--lime-dark);
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 900;
     }
 
+    .conversation-product-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
     .conversation-product {
+      min-width: 0;
       margin: 0;
       color: var(--text);
       font-size: 14px;
@@ -426,6 +463,9 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .conversation-location {
@@ -439,6 +479,17 @@
       font-weight: 900;
       background: var(--lime-soft);
       word-break: break-word;
+    }
+
+    .conversation-unread-badge {
+      display: inline-flex;
+      align-self: start;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 11px;
+      font-weight: 900;
+      background: var(--lime-soft);
     }
 
     .chat-detail {
@@ -2178,6 +2229,7 @@
     const transactionsList = document.getElementById("transactionsList");
     const resetDemoButton = document.getElementById("resetDemoButton");
     const FAVORITES_STORAGE_KEY = "qingningji_favorites";
+    const CONVERSATIONS_STORAGE_KEY = "qingningji_conversations";
     const MAX_IMAGE_WIDTH = 600;
     const MAX_IMAGE_HEIGHT = 600;
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -2199,7 +2251,7 @@
     let currentDetailProduct = null;
     let currentEditId = "";
     let currentConversationId = "";
-    let conversations = [];
+    let conversations = readStoredConversations();
     let transactions = [];
     let myPostsVisible = false;
     let favoritesVisible = false;
@@ -2385,6 +2437,17 @@
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit"
+      });
+    }
+
+    function formatConversationTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+
+      return date.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
       });
     }
 
@@ -2706,25 +2769,38 @@
         return;
       }
 
-      conversationList.innerHTML = conversations.map((conversation) => `
+      conversationList.innerHTML = conversations.map((conversation) => {
+        const unread = Boolean(conversation.unread);
+        return `
         <article class="conversation-card" data-conversation-id="${escapeHtml(conversation.id)}" role="button" tabindex="0" aria-label="打开与${escapeHtml(conversation.seller)}关于${escapeHtml(conversation.productName)}的聊天">
           <div class="conversation-top">
-            <h2 class="conversation-seller">${escapeHtml(conversation.seller)}</h2>
+            <div class="conversation-main">
+              ${unread ? '<span class="conversation-unread-dot" aria-hidden="true"></span>' : ""}
+              <h2 class="conversation-seller">${escapeHtml(conversation.seller)}</h2>
+            </div>
+            <div class="conversation-meta">
+              <time class="conversation-time">${escapeHtml(formatConversationTime(conversation.updatedAt))}</time>
+              ${unread ? '<span class="conversation-unread-badge">新消息</span>' : ""}
+            </div>
+          </div>
+          <div class="conversation-product-row">
+            <p class="conversation-product">${escapeHtml(conversation.productName)}</p>
             <span class="conversation-price">${escapeHtml(conversation.price)}</span>
           </div>
-          <p class="conversation-product">${escapeHtml(conversation.productName)}</p>
           <p class="conversation-preview">${escapeHtml(conversationPreview(conversation))}</p>
           <span class="conversation-location">${escapeHtml(conversation.location)}</span>
         </article>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function defaultConversationMessages() {
+      const createdAt = new Date().toISOString();
       return [
-        { role: "buyer", text: "你好，我想了解一下这个闲置物品。" },
-        { role: "seller", text: "可以的，还在。" },
-        { role: "buyer", text: "可以在哪里交易？" },
-        { role: "seller", text: "可以在商品标注的地点附近。" }
+        { role: "buyer", text: "你好，我想了解一下这个闲置物品。", createdAt },
+        { role: "seller", text: "可以的，还在。", createdAt },
+        { role: "buyer", text: "可以在哪里交易？", createdAt },
+        { role: "seller", text: "可以在商品标注的地点附近。", createdAt }
       ];
     }
 
@@ -2742,6 +2818,60 @@
       return latestMessage ? latestMessage.text : "你好，我想了解一下这个闲置物品。";
     }
 
+    function conversationUpdatedAt(conversation) {
+      const messages = conversationMessages(conversation);
+      const latestMessage = messages[messages.length - 1];
+      return conversation.updatedAt || (latestMessage && latestMessage.createdAt) || new Date().toISOString();
+    }
+
+    function normalizeConversation(conversation) {
+      const messages = conversationMessages(conversation).map((message) => ({
+        role: message.role === "seller" ? "seller" : "buyer",
+        text: String(message.text || ""),
+        createdAt: message.createdAt || conversation.updatedAt || new Date().toISOString()
+      }));
+
+      return {
+        id: String(conversation.id || ""),
+        seller: String(conversation.seller || "匿名同学"),
+        productName: String(conversation.productName || "未命名商品"),
+        price: String(conversation.price || "面议"),
+        location: String(conversation.location || "校内"),
+        messages,
+        updatedAt: conversation.updatedAt || (messages[messages.length - 1] && messages[messages.length - 1].createdAt) || new Date().toISOString(),
+        unread: Boolean(conversation.unread)
+      };
+    }
+
+    function readStoredConversations() {
+      try {
+        const raw = localStorage.getItem(CONVERSATIONS_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .map(normalizeConversation)
+          .filter((conversation) => conversation.id)
+          .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime());
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveConversations() {
+      try {
+        localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversations));
+      } catch (error) {
+        return;
+      }
+    }
+
+    function sortConversationsByRecent() {
+      conversations = [...conversations].sort((first, second) => {
+        return new Date(conversationUpdatedAt(second)).getTime() - new Date(conversationUpdatedAt(first)).getTime();
+      });
+    }
+
     function renderChatDetail(conversation) {
       chatSellerName.textContent = conversation.seller;
       chatProductName.textContent = conversation.productName;
@@ -2757,7 +2887,11 @@
     }
 
     function openConversation(conversationId) {
-      currentConversationId = conversationId;
+      const conversation = conversations.find((item) => String(item.id) === String(conversationId));
+      if (!conversation) return;
+      conversation.unread = false;
+      currentConversationId = conversation.id;
+      saveConversations();
       renderMessageView();
       chatInput.focus();
     }
@@ -2771,7 +2905,12 @@
     function sendCurrentChatMessage(text) {
       const conversation = conversations.find((item) => String(item.id) === String(currentConversationId));
       if (!conversation) return;
-      conversationMessages(conversation).push({ role: "buyer", text });
+      const createdAt = new Date().toISOString();
+      conversationMessages(conversation).push({ role: "buyer", text, createdAt });
+      conversation.updatedAt = createdAt;
+      conversation.unread = false;
+      sortConversationsByRecent();
+      saveConversations();
       renderChatDetail(conversation);
     }
 
@@ -2780,18 +2919,28 @@
       if (productStatus(currentDetailProduct) === "已出") return;
 
       const product = currentDetailProduct;
-      const conversation = {
+      const now = new Date().toISOString();
+      const existingConversation = conversations.find((item) => String(item.id) === String(currentDetailId));
+      const conversation = existingConversation || {
         id: currentDetailId,
-        seller: field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学"),
-        productName: field(product, ["name", "title", "productName"], "未命名商品"),
-        price: formatPrice(field(product, ["price", "amount"], "面议")),
-        location: field(product, ["location", "place", "campus", "address"], "校内"),
-        messages: defaultConversationMessages()
+        messages: defaultConversationMessages(),
+        updatedAt: now,
+        unread: false
       };
+
+      conversation.seller = field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学");
+      conversation.productName = field(product, ["name", "title", "productName"], "未命名商品");
+      conversation.price = formatPrice(field(product, ["price", "amount"], "面议"));
+      conversation.location = field(product, ["location", "place", "campus", "address"], "校内");
+      conversation.updatedAt = conversationUpdatedAt(conversation);
+      conversation.unread = false;
+
       conversations = [
-        conversations.find((item) => String(item.id) === String(currentDetailId)) || conversation,
+        conversation,
         ...conversations.filter((item) => String(item.id) !== String(currentDetailId))
       ];
+      currentConversationId = currentDetailId;
+      saveConversations();
       closeDetailModal();
       showTab("messages");
     }
