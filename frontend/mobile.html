@@ -544,6 +544,47 @@
       word-break: break-word;
     }
 
+    .chat-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(50, 200, 109, 0.16);
+      border-radius: 18px;
+      background: rgba(234, 255, 242, 0.72);
+    }
+
+    .chat-action-text {
+      min-width: 0;
+      color: var(--lime-dark);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .chat-reserve-button {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 0 13px;
+      border: 0;
+      border-radius: 999px;
+      color: white;
+      font-size: 13px;
+      font-weight: 900;
+      background: var(--lime);
+      box-shadow: 0 8px 16px rgba(50, 200, 109, 0.2);
+      cursor: pointer;
+    }
+
+    .chat-reserve-button:disabled {
+      color: var(--muted);
+      background: #eef4f1;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
     .chat-thread {
       display: flex;
       flex: 1;
@@ -564,6 +605,10 @@
 
     .chat-row.seller {
       justify-content: flex-start;
+    }
+
+    .chat-row.system {
+      justify-content: center;
     }
 
     .chat-bubble {
@@ -588,6 +633,16 @@
       border-bottom-left-radius: 6px;
       color: var(--text);
       background: white;
+    }
+
+    .chat-row.system .chat-bubble {
+      max-width: 86%;
+      border: 1px solid rgba(50, 200, 109, 0.14);
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 12px;
+      background: var(--lime-soft);
+      box-shadow: none;
     }
 
     .chat-compose {
@@ -634,6 +689,7 @@
     }
 
     .chat-send-button:active,
+    .chat-reserve-button:active,
     .chat-back-button:active {
       transform: scale(0.98);
     }
@@ -1924,6 +1980,10 @@
                 <p class="chat-product" id="chatProductName">商品</p>
               </div>
             </div>
+            <div class="chat-action-bar">
+              <span class="chat-action-text" id="chatActionText">商品状态</span>
+              <button class="chat-reserve-button" id="reserveProductButton" type="button">发起预定</button>
+            </div>
             <div class="chat-thread" id="chatThread" aria-live="polite"></div>
             <form class="chat-compose" id="chatForm">
               <input class="chat-input" id="chatInput" type="text" autocomplete="off" placeholder="输入消息">
@@ -2209,6 +2269,8 @@
     const backToMessagesButton = document.getElementById("backToMessagesButton");
     const chatSellerName = document.getElementById("chatSellerName");
     const chatProductName = document.getElementById("chatProductName");
+    const chatActionText = document.getElementById("chatActionText");
+    const reserveProductButton = document.getElementById("reserveProductButton");
     const chatThread = document.getElementById("chatThread");
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
@@ -2826,7 +2888,7 @@
 
     function normalizeConversation(conversation) {
       const messages = conversationMessages(conversation).map((message) => ({
-        role: message.role === "seller" ? "seller" : "buyer",
+        role: ["seller", "system"].includes(message.role) ? message.role : "buyer",
         text: String(message.text || ""),
         createdAt: message.createdAt || conversation.updatedAt || new Date().toISOString()
       }));
@@ -2837,6 +2899,7 @@
         productName: String(conversation.productName || "未命名商品"),
         price: String(conversation.price || "面议"),
         location: String(conversation.location || "校内"),
+        productStatus: PRODUCT_STATUSES.includes(conversation.productStatus) ? conversation.productStatus : DEFAULT_PRODUCT_STATUS,
         messages,
         updatedAt: conversation.updatedAt || (messages[messages.length - 1] && messages[messages.length - 1].createdAt) || new Date().toISOString(),
         unread: Boolean(conversation.unread)
@@ -2872,11 +2935,49 @@
       });
     }
 
+    function conversationProduct(conversation) {
+      return allProducts.find((product) => String(productId(product)) === String(conversation.id));
+    }
+
+    function conversationProductStatus(conversation) {
+      const product = conversationProduct(conversation);
+      if (product) return productStatus(product);
+      return PRODUCT_STATUSES.includes(conversation.productStatus) ? conversation.productStatus : DEFAULT_PRODUCT_STATUS;
+    }
+
+    function updateChatReserveAction(conversation) {
+      const status = conversationProductStatus(conversation);
+      conversation.productStatus = status;
+      chatActionText.textContent = `当前商品状态：${status}`;
+
+      if (status === "已预定") {
+        reserveProductButton.textContent = "已预定";
+        reserveProductButton.disabled = true;
+        return;
+      }
+
+      if (status === "已出") {
+        reserveProductButton.textContent = "已出，无法预定";
+        reserveProductButton.disabled = true;
+        return;
+      }
+
+      reserveProductButton.textContent = "发起预定";
+      reserveProductButton.disabled = false;
+    }
+
+    function messageRoleClass(role) {
+      if (role === "system") return "system";
+      if (role === "seller") return "seller";
+      return "buyer";
+    }
+
     function renderChatDetail(conversation) {
       chatSellerName.textContent = conversation.seller;
       chatProductName.textContent = conversation.productName;
+      updateChatReserveAction(conversation);
       chatThread.innerHTML = conversationMessages(conversation).map((message) => `
-        <div class="chat-row ${message.role === "buyer" ? "buyer" : "seller"}">
+        <div class="chat-row ${messageRoleClass(message.role)}">
           <div class="chat-bubble">${escapeHtml(message.text)}</div>
         </div>
       `).join("");
@@ -2914,6 +3015,55 @@
       renderChatDetail(conversation);
     }
 
+    function appendConversationMessage(conversation, role, text) {
+      const createdAt = new Date().toISOString();
+      conversationMessages(conversation).push({ role, text, createdAt });
+      conversation.updatedAt = createdAt;
+      conversation.unread = false;
+      sortConversationsByRecent();
+      saveConversations();
+    }
+
+    async function reserveCurrentConversationProduct() {
+      const conversation = conversations.find((item) => String(item.id) === String(currentConversationId));
+      if (!conversation) return;
+
+      const status = conversationProductStatus(conversation);
+      if (status !== "在售") {
+        updateChatReserveAction(conversation);
+        return;
+      }
+
+      const confirmed = confirm("确定要预定这个商品吗？");
+      if (!confirmed) return;
+
+      reserveProductButton.disabled = true;
+      reserveProductButton.textContent = "处理中...";
+
+      try {
+        const response = await fetch(`${API_URL}/${encodeURIComponent(conversation.id)}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ status: "已预定" })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        conversation.productStatus = "已预定";
+        appendConversationMessage(conversation, "system", "你已发起预定，商品状态已更新为已预定。");
+        await loadProducts();
+        if (transactionsVisible) await loadTransactions();
+        renderChatDetail(conversation);
+      } catch (error) {
+        alert("预定失败，请确认后端已启动");
+        updateChatReserveAction(conversation);
+      }
+    }
+
     function contactCurrentSeller() {
       if (!currentDetailProduct || !currentDetailId) return;
       if (productStatus(currentDetailProduct) === "已出") return;
@@ -2932,6 +3082,7 @@
       conversation.productName = field(product, ["name", "title", "productName"], "未命名商品");
       conversation.price = formatPrice(field(product, ["price", "amount"], "面议"));
       conversation.location = field(product, ["location", "place", "campus", "address"], "校内");
+      conversation.productStatus = productStatus(product);
       conversation.updatedAt = conversationUpdatedAt(conversation);
       conversation.unread = false;
 
@@ -3325,6 +3476,8 @@
     });
 
     backToMessagesButton.addEventListener("click", closeConversationDetail);
+
+    reserveProductButton.addEventListener("click", reserveCurrentConversationProduct);
 
     chatForm.addEventListener("submit", (event) => {
       event.preventDefault();

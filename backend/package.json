@@ -5,6 +5,7 @@
   "description": "Minimal backend API for Qingningji campus idle exchange app.",
   "main": "server.js",
   "scripts": {
+    "init-db": "node init-db.js",
     "dev": "node server.js",
     "start": "node server.js"
   }

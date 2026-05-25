@@ -1,6 +1,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const store = require("./sqlite-store");
 
 const PORT = Number(process.env.PORT) || 3001;
 const DATA_DIR = path.join(__dirname, "data");
@@ -18,69 +19,6 @@ const categories = [
 
 const productStatuses = ["在售", "已预定", "已出"];
 const defaultProductStatus = "在售";
-
-const defaultProducts = [
-  {
-    id: 1,
-    title: "二手马克笔套装 60色",
-    price: 28,
-    category: "设计生专区",
-    location: "教学楼A座",
-    seller: "艺术学院 小李",
-    status: defaultProductStatus,
-    imageData: ""
-  },
-  {
-    id: 2,
-    title: "Rhino 7 建模教材",
-    price: 15,
-    category: "教材资料",
-    location: "图书馆门口",
-    seller: "产品设计 王同学",
-    status: defaultProductStatus,
-    imageData: ""
-  },
-  {
-    id: 3,
-    title: "台灯",
-    price: 22,
-    category: "宿舍生活",
-    location: "2号宿舍楼大厅",
-    seller: "宿舍用户 小张",
-    status: defaultProductStatus,
-    imageData: ""
-  },
-  {
-    id: 4,
-    title: "小风扇",
-    price: 18,
-    category: "宿舍生活",
-    location: "食堂一楼",
-    seller: "校园用户 小陈",
-    status: defaultProductStatus,
-    imageData: ""
-  }
-];
-
-function ensureProductsFile() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(PRODUCTS_FILE)) {
-    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(defaultProducts, null, 2), "utf-8");
-  }
-}
-
-function ensureTransactionsFile() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(TRANSACTIONS_FILE)) {
-    fs.writeFileSync(TRANSACTIONS_FILE, JSON.stringify([], null, 2), "utf-8");
-  }
-}
 
 function normalizeProducts(storedProducts) {
   if (!Array.isArray(storedProducts)) {
@@ -100,60 +38,7 @@ function readProductsFile(filePath) {
   return normalizeProducts(storedProducts);
 }
 
-function loadProducts() {
-  ensureProductsFile();
-
-  return readProductsFile(PRODUCTS_FILE);
-}
-
-function saveProducts() {
-  fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2), "utf-8");
-}
-
-function loadTransactions() {
-  ensureTransactionsFile();
-
-  const fileContent = fs.readFileSync(TRANSACTIONS_FILE, "utf-8");
-  const storedTransactions = JSON.parse(fileContent);
-  if (!Array.isArray(storedTransactions)) {
-    throw new Error("transactions data must contain an array");
-  }
-
-  return storedTransactions;
-}
-
-function saveTransactions() {
-  fs.writeFileSync(TRANSACTIONS_FILE, JSON.stringify(transactions, null, 2), "utf-8");
-}
-
-function getNextTransactionId() {
-  return transactions.reduce((maxId, transaction) => Math.max(maxId, Number(transaction.id) || 0), 0) + 1;
-}
-
-function appendTransaction(product, fromStatus, toStatus) {
-  if (fromStatus === toStatus) return null;
-
-  const transaction = {
-    id: getNextTransactionId(),
-    productId: product.id,
-    title: product.title,
-    price: product.price,
-    fromStatus,
-    toStatus,
-    seller: product.seller,
-    location: product.location,
-    createdAt: new Date().toISOString()
-  };
-
-  transactions.push(transaction);
-  saveTransactions();
-  return transaction;
-}
-
-const products = loadProducts();
-const transactions = loadTransactions();
-saveProducts();
-saveTransactions();
+store.initializeDatabase(PRODUCTS_FILE, TRANSACTIONS_FILE);
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -190,10 +75,6 @@ function readJsonBody(req) {
   });
 }
 
-function getNextProductId() {
-  return products.reduce((maxId, product) => Math.max(maxId, product.id), 0) + 1;
-}
-
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = url.pathname;
@@ -217,23 +98,20 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === "GET" && pathname === "/api/products") {
-    sendJson(res, 200, { data: products });
+    sendJson(res, 200, { data: store.listProducts() });
     return;
   }
 
   if (req.method === "GET" && pathname === "/api/transactions") {
-    sendJson(res, 200, { data: transactions });
+    sendJson(res, 200, { data: store.listTransactions() });
     return;
   }
 
   if (req.method === "POST" && pathname === "/api/reset-demo-products") {
     try {
-      const demoProducts = readProductsFile(DEMO_PRODUCTS_FILE);
-      products.splice(0, products.length, ...demoProducts);
-      transactions.splice(0, transactions.length);
-      saveProducts();
-      saveTransactions();
-      sendJson(res, 200, { data: products });
+      readProductsFile(DEMO_PRODUCTS_FILE);
+      const demoProducts = store.resetProducts(DEMO_PRODUCTS_FILE);
+      sendJson(res, 200, { data: demoProducts });
     } catch (error) {
       sendJson(res, 500, { error: "重置演示数据失败" });
     }
@@ -265,7 +143,6 @@ async function handleRequest(req, res) {
     }
 
     const newProduct = {
-      id: getNextProductId(),
       title: body.title,
       price: body.price,
       category: body.category,
@@ -275,9 +152,7 @@ async function handleRequest(req, res) {
       imageData: typeof body.imageData === "string" ? body.imageData : ""
     };
 
-    products.push(newProduct);
-    saveProducts();
-    sendJson(res, 201, { data: newProduct });
+    sendJson(res, 201, { data: store.createProduct(newProduct) });
     return;
   }
 
@@ -303,17 +178,13 @@ async function handleRequest(req, res) {
     }
 
     const productId = Number(productStatusMatch[1]);
-    const product = products.find((item) => item.id === productId);
+    const product = store.updateProductStatus(productId, body.status);
 
     if (!product) {
       sendJson(res, 404, { error: "商品不存在" });
       return;
     }
 
-    const fromStatus = product.status;
-    product.status = body.status;
-    saveProducts();
-    appendTransaction(product, fromStatus, body.status);
     sendJson(res, 200, { data: product });
     return;
   }
@@ -329,9 +200,9 @@ async function handleRequest(req, res) {
     }
 
     const productId = Number(productMatch[1]);
-    const product = products.find((item) => item.id === productId);
+    const currentProduct = store.getProduct(productId);
 
-    if (!product) {
+    if (!currentProduct) {
       sendJson(res, 404, { error: "商品不存在" });
       return;
     }
@@ -347,24 +218,25 @@ async function handleRequest(req, res) {
     }
 
     const editableFields = ["title", "price", "category", "location", "seller"];
+    const updates = {};
     editableFields.forEach((field) => {
       if (body[field] !== undefined) {
-        product[field] = body[field];
+        updates[field] = body[field];
       }
     });
 
     if (body.status !== undefined) {
-      product.status = body.status;
+      updates.status = body.status;
     }
 
-    saveProducts();
+    const product = store.updateProduct(productId, updates);
     sendJson(res, 200, { data: product });
     return;
   }
 
   if (req.method === "GET" && productMatch) {
     const productId = Number(productMatch[1]);
-    const product = products.find((item) => item.id === productId);
+    const product = store.getProduct(productId);
 
     if (!product) {
       sendJson(res, 404, { error: "Product Not Found" });
@@ -377,15 +249,13 @@ async function handleRequest(req, res) {
 
   if (req.method === "DELETE" && productMatch) {
     const productId = Number(productMatch[1]);
-    const productIndex = products.findIndex((item) => item.id === productId);
+    const deletedProduct = store.deleteProduct(productId);
 
-    if (productIndex === -1) {
+    if (!deletedProduct) {
       sendJson(res, 404, { error: "商品不存在" });
       return;
     }
 
-    const deletedProduct = products.splice(productIndex, 1)[0];
-    saveProducts();
     sendJson(res, 200, { data: deletedProduct });
     return;
   }

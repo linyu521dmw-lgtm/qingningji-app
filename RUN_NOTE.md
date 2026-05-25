@@ -8,6 +8,12 @@
 cd /mnt/d/桌面/DProjectsqingningji-app/backend
 ```
 
+第一次运行或需要从 JSON 迁移数据时，先初始化 SQLite 数据库：
+
+```bash
+npm run init-db
+```
+
 启动后端服务：
 
 ```bash
@@ -21,6 +27,12 @@ node server.js
 ```
 
 后端默认运行在 `http://localhost:3001`。
+
+当前后端数据优先保存在 SQLite 数据库：
+
+```text
+backend/data/qingningji.db
+```
 
 ## 如何启动前端
 
@@ -83,6 +95,12 @@ http://localhost:3001/api/products
 商品数据文件位置：
 
 ```text
+backend/data/qingningji.db
+```
+
+`products.json` 仍保留为迁移来源和历史数据参考：
+
+```text
 backend/data/products.json
 ```
 
@@ -93,6 +111,12 @@ backend/data/demoProducts.json
 ```
 
 交易记录文件位置：
+
+```text
+backend/data/qingningji.db
+```
+
+`transactions.json` 仍保留为迁移来源和历史数据参考：
 
 ```text
 backend/data/transactions.json
@@ -143,6 +167,23 @@ http://localhost:5174/mobile.html
 npm run dev
 ```
 
+### 数据库出问题如何重新初始化
+
+如果 SQLite 数据库损坏，或想重新从 JSON 文件导入数据，可以先停止后端服务，然后删除数据库文件：
+
+```bash
+rm backend/data/qingningji.db
+```
+
+再重新初始化：
+
+```bash
+cd backend
+npm run init-db
+```
+
+注意：删除 `qingningji.db` 会清空当前 SQLite 中的新增商品和交易记录。重新初始化会从 `products.json` 和 `transactions.json` 导入数据。
+
 ### Git 如何保存
 
 查看当前改动：
@@ -181,6 +222,7 @@ cd /mnt/d/桌面/DProjectsqingningji-app
 
 ```bash
 cd backend
+npm run init-db
 npm run dev
 ```
 
@@ -201,6 +243,12 @@ curl http://localhost:3001/health
 
 ```bash
 curl http://localhost:3001/api/products
+```
+
+查看交易记录：
+
+```bash
+curl http://localhost:3001/api/transactions
 ```
 
 重置演示数据：
