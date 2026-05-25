@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.local
+frontend/config.js
+backend/data/qingningji.db
+.DS_Store
