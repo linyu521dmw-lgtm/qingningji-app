@@ -72,7 +72,7 @@ function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
     ...corsHeaders(res.req),
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json; charset=utf-8"
   });
   res.end(JSON.stringify(payload));
@@ -160,6 +160,31 @@ async function uploadProductImage(imageData, productId) {
   return data.publicUrl || "";
 }
 
+async function getUserFromRequest(req) {
+  const authHeader = req.headers.authorization || "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+
+  if (!match || !supabaseStorageClient) {
+    return null;
+  }
+
+  const { data, error } = await supabaseStorageClient.auth.getUser(match[1]);
+
+  if (error || !data || !data.user) {
+    return null;
+  }
+
+  return data.user;
+}
+
+function isProductOwner(product, user) {
+  return Boolean(product && user && product.ownerId && product.ownerId === user.id);
+}
+
+function isUnclaimedProduct(product) {
+  return Boolean(product && !product.ownerId);
+}
+
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = url.pathname;
@@ -168,7 +193,7 @@ async function handleRequest(req, res) {
     res.writeHead(204, {
       ...corsHeaders(req),
       "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
     });
     res.end();
     return;
@@ -218,6 +243,12 @@ async function handleRequest(req, res) {
 
   if (req.method === "POST" && pathname === "/api/products") {
     let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后发布" });
+      return;
+    }
 
     try {
       body = await readJsonBody(req);
@@ -249,7 +280,9 @@ async function handleRequest(req, res) {
       location: body.location,
       seller: body.seller,
       status: defaultProductStatus,
-      imageData: shouldUploadImage ? "" : submittedImageData
+      imageData: shouldUploadImage ? "" : submittedImageData,
+      ownerId: user.id,
+      ownerEmail: user.email || ""
     };
 
     try {
@@ -275,6 +308,12 @@ async function handleRequest(req, res) {
 
   if (req.method === "PATCH" && productStatusMatch) {
     let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后操作" });
+      return;
+    }
 
     try {
       body = await readJsonBody(req);
@@ -292,10 +331,31 @@ async function handleRequest(req, res) {
     }
 
     const productId = Number(productStatusMatch[1]);
+    let currentProduct;
     let product;
 
     try {
-      product = await store.updateProductStatus(productId, body.status);
+      currentProduct = await store.getProduct(productId);
+    } catch (error) {
+      sendJson(res, 500, { error: "获取商品失败" });
+      return;
+    }
+
+    if (!currentProduct) {
+      sendJson(res, 404, { error: "商品不存在" });
+      return;
+    }
+
+    if (!isProductOwner(currentProduct, user)) {
+      sendJson(res, 403, { error: "只能操作自己发布的商品" });
+      return;
+    }
+
+    try {
+      product = await store.updateProductStatus(productId, body.status, {
+        id: user.id,
+        email: user.email || ""
+      });
     } catch (error) {
       sendJson(res, 500, { error: "更新商品状态失败" });
       return;
@@ -312,6 +372,12 @@ async function handleRequest(req, res) {
 
   if (req.method === "PATCH" && productMatch) {
     let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后操作" });
+      return;
+    }
 
     try {
       body = await readJsonBody(req);
@@ -332,6 +398,11 @@ async function handleRequest(req, res) {
 
     if (!currentProduct) {
       sendJson(res, 404, { error: "商品不存在" });
+      return;
+    }
+
+    if (!isProductOwner(currentProduct, user) && !isUnclaimedProduct(currentProduct)) {
+      sendJson(res, 403, { error: "只能操作自己发布的商品" });
       return;
     }
 
@@ -369,6 +440,11 @@ async function handleRequest(req, res) {
       } else if (!useSupabase) {
         updates.imageData = typeof body.imageData === "string" ? body.imageData : "";
       }
+    }
+
+    if (isUnclaimedProduct(currentProduct)) {
+      updates.ownerId = user.id;
+      updates.ownerEmail = user.email || "";
     }
 
     let product;
@@ -411,7 +487,31 @@ async function handleRequest(req, res) {
 
   if (req.method === "DELETE" && productMatch) {
     const productId = Number(productMatch[1]);
+    const user = await getUserFromRequest(req);
+    let currentProduct;
     let deletedProduct;
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后操作" });
+      return;
+    }
+
+    try {
+      currentProduct = await store.getProduct(productId);
+    } catch (error) {
+      sendJson(res, 500, { error: "获取商品失败" });
+      return;
+    }
+
+    if (!currentProduct) {
+      sendJson(res, 404, { error: "商品不存在" });
+      return;
+    }
+
+    if (!isProductOwner(currentProduct, user)) {
+      sendJson(res, 403, { error: "只能操作自己发布的商品" });
+      return;
+    }
 
     try {
       deletedProduct = await store.deleteProduct(productId);

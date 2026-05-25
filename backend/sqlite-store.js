@@ -58,6 +58,8 @@ def product_row(row):
         "seller": row["seller"],
         "status": row["status"] if row["status"] in PRODUCT_STATUSES else DEFAULT_PRODUCT_STATUS,
         "imageData": row["imageData"] or "",
+        "ownerId": "",
+        "ownerEmail": "",
         "createdAt": row["createdAt"],
         "updatedAt": row["updatedAt"],
     }
@@ -74,6 +76,8 @@ def transaction_row(row):
         "toStatus": row["toStatus"],
         "seller": row["seller"],
         "location": row["location"],
+        "actorId": "",
+        "actorEmail": "",
         "createdAt": row["createdAt"],
     }
 

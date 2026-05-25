@@ -47,6 +47,8 @@ function toCamelProduct(product) {
     status: normalizeStatus(product.status),
     imageData: product.image_url || (typeof product.image_data === "string" ? product.image_data : ""),
     imageUrl: product.image_url || "",
+    ownerId: product.owner_id || "",
+    ownerEmail: product.owner_email || "",
     createdAt: product.created_at,
     updatedAt: product.updated_at
   };
@@ -66,6 +68,8 @@ function toCamelTransaction(transaction) {
     toStatus: transaction.to_status,
     seller: transaction.seller,
     location: transaction.location,
+    actorId: transaction.actor_id || "",
+    actorEmail: transaction.actor_email || "",
     createdAt: transaction.created_at
   };
 }
@@ -83,6 +87,8 @@ function toSnakeProduct(product) {
     status: normalizeStatus(product.status),
     image_data: typeof product.imageData === "string" ? product.imageData : "",
     image_url: product.imageUrl || "",
+    owner_id: product.ownerId || product.owner_id || null,
+    owner_email: product.ownerEmail || product.owner_email || null,
     created_at: product.createdAt || currentTime,
     updated_at: product.updatedAt || currentTime
   };
@@ -103,6 +109,12 @@ function toSnakeProductUpdates(product) {
   if (product.imageUrl !== undefined) {
     updates.image_url = typeof product.imageUrl === "string" ? product.imageUrl : "";
   }
+  if (product.ownerId !== undefined) {
+    updates.owner_id = product.ownerId || null;
+  }
+  if (product.ownerEmail !== undefined) {
+    updates.owner_email = product.ownerEmail || null;
+  }
 
   if (Object.keys(updates).length > 0) {
     updates.updated_at = nowIso();
@@ -120,6 +132,8 @@ function toSnakeTransaction(transaction) {
     to_status: transaction.toStatus || defaultProductStatus,
     seller: transaction.seller || "匿名同学",
     location: transaction.location || "校内",
+    actor_id: transaction.actorId || null,
+    actor_email: transaction.actorEmail || null,
     created_at: transaction.createdAt || nowIso()
   };
 }
@@ -178,7 +192,7 @@ async function updateProduct(id, product) {
   return toCamelProduct(data);
 }
 
-async function updateProductStatus(id, status) {
+async function updateProductStatus(id, status, actor = {}) {
   ensureSupabase();
   const currentProduct = await getProduct(id);
 
@@ -208,6 +222,8 @@ async function updateProductStatus(id, status) {
         toStatus: status,
         seller: currentProduct.seller,
         location: currentProduct.location,
+        actorId: actor.id,
+        actorEmail: actor.email,
         createdAt: currentTime
       })
     );

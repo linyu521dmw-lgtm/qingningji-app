@@ -737,6 +737,60 @@
       font-size: 13px;
     }
 
+    .auth-panel {
+      display: grid;
+      gap: 10px;
+      margin: 0 0 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .auth-input {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+      box-sizing: border-box;
+    }
+
+    .auth-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .auth-button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 800;
+      color: #fff;
+      background: var(--green);
+      cursor: pointer;
+    }
+
+    .auth-button.secondary {
+      color: var(--green);
+      background: #eef8ef;
+    }
+
+    .auth-tip {
+      min-height: 18px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .publish-count {
       display: flex;
       justify-content: space-between;
@@ -2000,10 +2054,22 @@
             <div class="profile-head">
               <div class="profile-avatar">柠</div>
               <div>
-                <h2 class="profile-name">校园用户</h2>
-                <p class="profile-email">user@university.edu.cn</p>
+                <h2 class="profile-name" id="profileName">未登录</h2>
+                <p class="profile-email" id="profileEmail">登录后可以发布和管理自己的商品</p>
               </div>
             </div>
+            <section class="auth-panel" id="authPanel" aria-label="账号登录">
+              <form class="auth-form" id="authForm" novalidate>
+                <input class="auth-input" id="authEmail" name="email" type="email" autocomplete="email" placeholder="邮箱">
+                <input class="auth-input" id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="密码">
+                <div class="auth-actions">
+                  <button class="auth-button" id="loginButton" type="submit">登录</button>
+                  <button class="auth-button secondary" id="signupButton" type="button">注册</button>
+                </div>
+                <p class="auth-tip" id="authTip" role="alert"></p>
+              </form>
+              <button class="auth-button secondary" id="logoutButton" type="button" hidden>退出登录</button>
+            </section>
             <div class="publish-count">
               <span>我的发布</span>
               <span id="publishedCount">0 件</span>
@@ -2215,9 +2281,15 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script>
     const API_BASE = window.QINGNINGJI_API_BASE || `${location.protocol}//${location.hostname || "localhost"}:3001`;
+    const SUPABASE_URL = window.QINGNINGJI_SUPABASE_URL || window.SUPABASE_URL || "";
+    const SUPABASE_ANON_KEY = window.QINGNINGJI_SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || "";
+    const supabaseAuth = window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
     const API_URL = `${API_BASE}/api/products`;
     const TRANSACTIONS_URL = `${API_BASE}/api/transactions`;
     const RESET_DEMO_URL = `${API_BASE}/api/reset-demo-products`;
@@ -2292,8 +2364,17 @@
     const transactionsCount = document.getElementById("transactionsCount");
     const transactionsList = document.getElementById("transactionsList");
     const resetDemoButton = document.getElementById("resetDemoButton");
+    const profileName = document.getElementById("profileName");
+    const profileEmail = document.getElementById("profileEmail");
+    const authForm = document.getElementById("authForm");
+    const authEmailInput = document.getElementById("authEmail");
+    const authPasswordInput = document.getElementById("authPassword");
+    const signupButton = document.getElementById("signupButton");
+    const logoutButton = document.getElementById("logoutButton");
+    const authTip = document.getElementById("authTip");
     const FAVORITES_STORAGE_KEY = "qingningji_favorites";
     const CONVERSATIONS_STORAGE_KEY = "qingningji_conversations";
+    const AUTH_STORAGE_KEY = "qingningji_auth_session";
     const MAX_IMAGE_WIDTH = 600;
     const MAX_IMAGE_HEIGHT = 600;
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -2325,6 +2406,7 @@
     let selectedImageData = "";
     let imageUploadToken = 0;
     let isImageProcessing = false;
+    let currentAuthSession = readAuthSession();
 
     function normalizeProducts(payload) {
       if (Array.isArray(payload)) return payload;
@@ -2346,6 +2428,69 @@
       if (Array.isArray(payload.transactions)) return payload.transactions;
       if (payload && payload.data && Array.isArray(payload.data.transactions)) return payload.data.transactions;
       return [];
+    }
+
+    function readAuthSession() {
+      try {
+        const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
+        if (!session || !session.accessToken || !session.user || !session.user.id) return null;
+        return session;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function writeAuthSession(session) {
+      currentAuthSession = session;
+      if (session) {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+      renderActiveView();
+    }
+
+    function currentUser() {
+      return currentAuthSession && currentAuthSession.user ? currentAuthSession.user : null;
+    }
+
+    function currentAccessToken() {
+      return currentAuthSession && currentAuthSession.accessToken ? currentAuthSession.accessToken : "";
+    }
+
+    function authHeaders(extraHeaders = {}) {
+      const token = currentAccessToken();
+      return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
+    }
+
+    function productOwnerId(product) {
+      return field(product, ["ownerId", "owner_id"], "");
+    }
+
+    function isOwnProduct(product) {
+      const user = currentUser();
+      return Boolean(user && productOwnerId(product) && productOwnerId(product) === user.id);
+    }
+
+    function requireLogin(message = "请先登录后发布。") {
+      if (currentUser() && currentAccessToken()) return true;
+      alert(message);
+      showTab("profile");
+      return false;
+    }
+
+    function requireOwnProduct(product) {
+      if (isOwnProduct(product)) return true;
+      alert("只能操作自己发布的商品。");
+      return false;
+    }
+
+    function authErrorMessage(error) {
+      const message = error && error.message ? error.message : "";
+      if (message.includes("Invalid login credentials")) return "邮箱或密码不正确";
+      if (message.includes("Password should be")) return "密码长度不符合要求";
+      if (message.includes("User already registered")) return "该邮箱已注册";
+      return message || "账号操作失败";
     }
 
     function field(product, keys, fallback) {
@@ -2751,28 +2896,41 @@
     function updateWeeklyFlowStats() {
       const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
       const favoriteCount = readFavoriteIds().filter((id) => validIds.has(id)).length;
+      const ownProducts = allProducts.filter(isOwnProduct);
 
-      weeklyPublishedCount.textContent = allProducts.length;
+      weeklyPublishedCount.textContent = ownProducts.length;
       weeklyFavoriteCount.textContent = favoriteCount;
-      weeklyAvailableCount.textContent = allProducts.filter((product) => productStatus(product) === "在售").length;
-      weeklySoldCount.textContent = allProducts.filter((product) => productStatus(product) === "已出").length;
+      weeklyAvailableCount.textContent = ownProducts.filter((product) => productStatus(product) === "在售").length;
+      weeklySoldCount.textContent = ownProducts.filter((product) => productStatus(product) === "已出").length;
     }
 
     function renderProfileView() {
-      publishedCount.textContent = `${allProducts.length} 件`;
+      const user = currentUser();
+      const ownProducts = allProducts.filter(isOwnProduct);
+
+      profileName.textContent = user ? "校园用户" : "未登录";
+      profileEmail.textContent = user ? user.email : "登录后可以发布和管理自己的商品";
+      authForm.hidden = Boolean(user);
+      logoutButton.hidden = !user;
+      publishedCount.textContent = `${ownProducts.length} 件`;
       updateWeeklyFlowStats();
       myPostsPanel.hidden = !myPostsVisible;
       myPostsToggleMark.textContent = myPostsVisible ? "收起" : "展开";
-      myPostsCount.textContent = `${allProducts.length} 件商品`;
+      myPostsCount.textContent = `${ownProducts.length} 件商品`;
       renderFavoritesView();
       renderTransactionsView();
 
-      if (!allProducts.length) {
+      if (!user) {
+        myPostsList.innerHTML = '<div class="my-post-empty">请先登录后查看自己的发布。</div>';
+        return;
+      }
+
+      if (!ownProducts.length) {
         myPostsList.innerHTML = '<div class="my-post-empty">还没有发布商品，点击底部发布按钮添加闲置物品。</div>';
         return;
       }
 
-      myPostsList.innerHTML = allProducts.map((product) => {
+      myPostsList.innerHTML = ownProducts.map((product) => {
         const id = productId(product);
         const name = field(product, ["name", "title", "productName"], "未命名商品");
         const price = field(product, ["price", "amount"], "面议");
@@ -3036,6 +3194,12 @@
         return;
       }
 
+      const product = allProducts.find((item) => String(productId(item)) === String(conversation.id));
+      if (!requireLogin("请先登录后操作。") || !requireOwnProduct(product)) {
+        updateChatReserveAction(conversation);
+        return;
+      }
+
       const confirmed = confirm("确定要预定这个商品吗？");
       if (!confirmed) return;
 
@@ -3045,9 +3209,9 @@
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(conversation.id)}/status`, {
           method: "PATCH",
-          headers: {
+          headers: authHeaders({
             "Content-Type": "application/json"
-          },
+          }),
           body: JSON.stringify({ status: "已预定" })
         });
 
@@ -3109,6 +3273,7 @@
     }
 
     function openPublishModal() {
+      if (!requireLogin("请先登录后发布。")) return;
       publishTip.textContent = "";
       publishModal.classList.add("open");
       publishModal.setAttribute("aria-hidden", "false");
@@ -3121,6 +3286,7 @@
     }
 
     function openEditModal(product) {
+      if (!requireOwnProduct(product)) return;
       currentEditId = String(productId(product) || "");
       editTip.textContent = "";
       editProductTitleInput.value = field(product, ["name", "title", "productName"], "");
@@ -3248,7 +3414,7 @@
       detailFavoriteButton.disabled = !currentDetailId;
       detailFavoriteButton.dataset.favoriteId = currentDetailId;
       updateFavoriteButtons();
-      deleteDetailButton.disabled = !currentDetailId;
+      deleteDetailButton.disabled = !currentDetailId || !isOwnProduct(product);
     }
 
     function renderDetailError() {
@@ -3296,6 +3462,9 @@
         return;
       }
 
+      const product = allProducts.find((item) => String(productId(item)) === String(id)) || currentDetailProduct;
+      if (!requireLogin("请先登录后操作。") || !requireOwnProduct(product)) return;
+
       const confirmed = confirm("确定删除这个商品吗？");
       if (!confirmed) return;
 
@@ -3303,7 +3472,8 @@
 
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(id)}`, {
-          method: "DELETE"
+          method: "DELETE",
+          headers: authHeaders()
         });
 
         if (!response.ok) {
@@ -3324,14 +3494,17 @@
         return;
       }
 
+      const product = allProducts.find((item) => String(productId(item)) === String(id));
+      if (!requireLogin("请先登录后操作。") || !requireOwnProduct(product)) return;
+
       if (button) button.disabled = true;
 
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(id)}/status`, {
           method: "PATCH",
-          headers: {
+          headers: authHeaders({
             "Content-Type": "application/json"
-          },
+          }),
           body: JSON.stringify({ status: nextStatus })
         });
 
@@ -3426,6 +3599,87 @@
       } finally {
         resetDemoButton.disabled = false;
       }
+    }
+
+    async function loginWithEmail() {
+      if (!supabaseAuth) {
+        authTip.textContent = "请先配置 SUPABASE_URL 和 SUPABASE_ANON_KEY";
+        return;
+      }
+
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value;
+
+      if (!email || !password) {
+        authTip.textContent = "请输入邮箱和密码";
+        return;
+      }
+
+      authTip.textContent = "正在登录...";
+
+      const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
+
+      if (error || !data.session || !data.user) {
+        authTip.textContent = authErrorMessage(error);
+        return;
+      }
+
+      writeAuthSession({
+        accessToken: data.session.access_token,
+        user: {
+          id: data.user.id,
+          email: data.user.email || email
+        }
+      });
+      authPasswordInput.value = "";
+      authTip.textContent = "";
+    }
+
+    async function signupWithEmail() {
+      if (!supabaseAuth) {
+        authTip.textContent = "请先配置 SUPABASE_URL 和 SUPABASE_ANON_KEY";
+        return;
+      }
+
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value;
+
+      if (!email || !password) {
+        authTip.textContent = "请输入邮箱和密码";
+        return;
+      }
+
+      authTip.textContent = "正在注册...";
+
+      const { data, error } = await supabaseAuth.auth.signUp({ email, password });
+
+      if (error) {
+        authTip.textContent = authErrorMessage(error);
+        return;
+      }
+
+      if (data.session && data.user) {
+        writeAuthSession({
+          accessToken: data.session.access_token,
+          user: {
+            id: data.user.id,
+            email: data.user.email || email
+          }
+        });
+        authPasswordInput.value = "";
+        authTip.textContent = "";
+        return;
+      }
+
+      authTip.textContent = "注册成功，请到邮箱确认后再登录";
+    }
+
+    async function logout() {
+      if (supabaseAuth) {
+        await supabaseAuth.auth.signOut();
+      }
+      writeAuthSession(null);
+      authTip.textContent = "";
     }
 
     categoryTabs.forEach((tab) => {
@@ -3539,6 +3793,14 @@
 
     resetDemoButton.addEventListener("click", resetDemoProducts);
 
+    authForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      loginWithEmail();
+    });
+
+    signupButton.addEventListener("click", signupWithEmail);
+    logoutButton.addEventListener("click", logout);
+
     grid.addEventListener("click", (event) => {
       const favoriteButton = event.target.closest(".favorite-button");
       if (favoriteButton) {
@@ -3641,6 +3903,16 @@
         return;
       }
 
+      const editingProduct = allProducts.find((item) => String(productId(item)) === String(currentEditId));
+      if (!currentUser() || !currentAccessToken()) {
+        editTip.textContent = "请先登录后操作";
+        return;
+      }
+      if (!isOwnProduct(editingProduct)) {
+        editTip.textContent = "只能操作自己发布的商品。";
+        return;
+      }
+
       const formData = new FormData(editForm);
       const title = String(formData.get("title") || "").trim();
       const priceText = String(formData.get("price") || "").trim();
@@ -3670,9 +3942,9 @@
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(currentEditId)}`, {
           method: "PATCH",
-          headers: {
+          headers: authHeaders({
             "Content-Type": "application/json"
-          },
+          }),
           body: JSON.stringify({
             title,
             price,
@@ -3698,6 +3970,12 @@
     publishForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 
+      if (!currentUser() || !currentAccessToken()) {
+        publishTip.textContent = "请先登录后发布。";
+        showTab("profile");
+        return;
+      }
+
       const formData = new FormData(publishForm);
       const title = String(formData.get("title") || "").trim();
       const priceText = String(formData.get("price") || "").trim();
@@ -3721,9 +3999,9 @@
       try {
         const response = await fetch(API_URL, {
           method: "POST",
-          headers: {
+          headers: authHeaders({
             "Content-Type": "application/json"
-          },
+          }),
           body: JSON.stringify({
             title,
             price: Number(priceText),

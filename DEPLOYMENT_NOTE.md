@@ -81,6 +81,19 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 不要把 `SUPABASE_SERVICE_ROLE_KEY` 写进前端或提交到代码仓库。
 
+后端会使用 `SUPABASE_SERVICE_ROLE_KEY` 验证 Supabase Auth 的 access token，并在写接口中根据 `products.owner_id` 判断权限。登录后调用发布、编辑、删除和修改状态接口时，请求头需要带上：
+
+```http
+Authorization: Bearer <access_token>
+```
+
+商品发布时后端会写入：
+
+- `owner_id = user.id`
+- `owner_email = user.email`
+
+只有 `owner_id` 与当前登录用户 id 一致时，才允许编辑、删除和修改状态。老演示商品如果 `owner_id` 为空，`PATCH /api/products/:id` 会兼容允许当前登录用户编辑一次，并自动绑定给该用户。
+
 ## 前端如何配置线上 API 地址
 
 前端已经预留 `config.js` 加载位置。部署时可以在 `frontend` 目录下新建：
@@ -93,6 +106,8 @@ frontend/config.js
 
 ```js
 window.QINGNINGJI_API_BASE = "https://your-backend-url.onrender.com";
+window.QINGNINGJI_SUPABASE_URL = "https://your-project.supabase.co";
+window.QINGNINGJI_SUPABASE_ANON_KEY = "your-supabase-anon-key";
 ```
 
 仓库中提供了示例文件：
@@ -102,6 +117,8 @@ frontend/config.example.js
 ```
 
 本地开发时可以不创建 `config.js`。如果 `config.js` 不存在，页面会继续使用默认本地后端地址。
+
+前端只能配置 Supabase anon key，用于邮箱密码注册和登录。不要把 `SUPABASE_SERVICE_ROLE_KEY` 写入 `frontend/config.js`。
 
 ## 健康检查
 
