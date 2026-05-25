@@ -6,6 +6,7 @@ const PORT = Number(process.env.PORT) || 3001;
 const DATA_DIR = path.join(__dirname, "data");
 const PRODUCTS_FILE = path.join(DATA_DIR, "products.json");
 const DEMO_PRODUCTS_FILE = path.join(DATA_DIR, "demoProducts.json");
+const TRANSACTIONS_FILE = path.join(DATA_DIR, "transactions.json");
 
 const categories = [
   { id: 1, name: "教材资料" },
@@ -71,6 +72,16 @@ function ensureProductsFile() {
   }
 }
 
+function ensureTransactionsFile() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(TRANSACTIONS_FILE)) {
+    fs.writeFileSync(TRANSACTIONS_FILE, JSON.stringify([], null, 2), "utf-8");
+  }
+}
+
 function normalizeProducts(storedProducts) {
   if (!Array.isArray(storedProducts)) {
     throw new Error("products data must contain an array");
@@ -99,8 +110,50 @@ function saveProducts() {
   fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2), "utf-8");
 }
 
+function loadTransactions() {
+  ensureTransactionsFile();
+
+  const fileContent = fs.readFileSync(TRANSACTIONS_FILE, "utf-8");
+  const storedTransactions = JSON.parse(fileContent);
+  if (!Array.isArray(storedTransactions)) {
+    throw new Error("transactions data must contain an array");
+  }
+
+  return storedTransactions;
+}
+
+function saveTransactions() {
+  fs.writeFileSync(TRANSACTIONS_FILE, JSON.stringify(transactions, null, 2), "utf-8");
+}
+
+function getNextTransactionId() {
+  return transactions.reduce((maxId, transaction) => Math.max(maxId, Number(transaction.id) || 0), 0) + 1;
+}
+
+function appendTransaction(product, fromStatus, toStatus) {
+  if (fromStatus === toStatus) return null;
+
+  const transaction = {
+    id: getNextTransactionId(),
+    productId: product.id,
+    title: product.title,
+    price: product.price,
+    fromStatus,
+    toStatus,
+    seller: product.seller,
+    location: product.location,
+    createdAt: new Date().toISOString()
+  };
+
+  transactions.push(transaction);
+  saveTransactions();
+  return transaction;
+}
+
 const products = loadProducts();
+const transactions = loadTransactions();
 saveProducts();
+saveTransactions();
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -168,11 +221,18 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === "GET" && pathname === "/api/transactions") {
+    sendJson(res, 200, { data: transactions });
+    return;
+  }
+
   if (req.method === "POST" && pathname === "/api/reset-demo-products") {
     try {
       const demoProducts = readProductsFile(DEMO_PRODUCTS_FILE);
       products.splice(0, products.length, ...demoProducts);
+      transactions.splice(0, transactions.length);
       saveProducts();
+      saveTransactions();
       sendJson(res, 200, { data: products });
     } catch (error) {
       sendJson(res, 500, { error: "重置演示数据失败" });
@@ -250,8 +310,10 @@ async function handleRequest(req, res) {
       return;
     }
 
+    const fromStatus = product.status;
     product.status = body.status;
     saveProducts();
+    appendTransaction(product, fromStatus, body.status);
     sendJson(res, 200, { data: product });
     return;
   }
@@ -328,7 +390,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

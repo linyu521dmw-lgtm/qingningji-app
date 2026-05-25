@@ -579,7 +579,8 @@
     }
 
     .my-posts-panel,
-    .favorites-panel {
+    .favorites-panel,
+    .transactions-panel {
       display: grid;
       gap: 13px;
       margin-top: 18px;
@@ -606,7 +607,8 @@
     }
 
     .my-post-list,
-    .favorite-list {
+    .favorite-list,
+    .transaction-list {
       display: grid;
       gap: 12px;
       padding-bottom: 12px;
@@ -745,6 +747,88 @@
       background: var(--lime-soft);
     }
 
+    .transaction-card {
+      display: grid;
+      gap: 11px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at top right, rgba(50, 200, 109, 0.09), transparent 8rem),
+        #ffffff;
+      box-shadow: 0 8px 18px rgba(31, 45, 42, 0.045);
+    }
+
+    .transaction-top,
+    .transaction-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .transaction-name {
+      min-width: 0;
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 900;
+      word-break: break-word;
+    }
+
+    .transaction-price {
+      flex: 0 0 auto;
+      color: var(--lime-dark);
+      font-size: 17px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .transaction-change {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      max-width: 100%;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      line-height: 1.2;
+      font-weight: 900;
+      word-break: break-word;
+    }
+
+    .transaction-change--reserved {
+      color: #a16012;
+      background: #fff3df;
+    }
+
+    .transaction-change--sold {
+      color: #6f7874;
+      background: #eef2f0;
+    }
+
+    .transaction-change--available {
+      color: #247d4a;
+      background: #e8f8ef;
+    }
+
+    .transaction-location,
+    .transaction-time {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .transaction-time {
+      flex: 0 0 auto;
+      text-align: right;
+    }
+
     .my-post-status-controls {
       display: flex;
       flex-wrap: wrap;
@@ -771,7 +855,8 @@
     }
 
     .my-post-empty,
-    .favorite-empty {
+    .favorite-empty,
+    .transaction-empty {
       padding: 18px;
       border: 1px dashed rgba(50, 200, 109, 0.28);
       border-radius: 18px;
@@ -782,14 +867,16 @@
       background: rgba(255, 255, 255, 0.7);
     }
 
-    .favorite-empty h3 {
+    .favorite-empty h3,
+    .transaction-empty h3 {
       margin: 0;
       color: var(--text);
       font-size: 16px;
       line-height: 1.35;
     }
 
-    .favorite-empty p {
+    .favorite-empty p,
+    .transaction-empty p {
       margin: 8px 0 0;
     }
 
@@ -1667,7 +1754,7 @@
             <div class="menu-list">
               <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
               <button class="menu-item" id="toggleFavoritesButton" type="button"><span>我的收藏</span><span id="favoritesToggleMark">展开</span></button>
-              <div class="menu-item"><span>交易记录</span><span>›</span></div>
+              <button class="menu-item" id="toggleTransactionsButton" type="button"><span>交易记录</span><span id="transactionsToggleMark">展开</span></button>
               <div class="menu-item"><span>个人资料</span><span>›</span></div>
               <div class="menu-item"><span>设置</span><span>›</span></div>
             </div>
@@ -1684,6 +1771,13 @@
                 <span id="favoritesCount">0 件商品</span>
               </div>
               <div class="favorite-list" id="favoritesList"></div>
+            </section>
+            <section class="transactions-panel" id="transactionsPanel" hidden>
+              <div class="panel-title-row">
+                <h3>交易记录</h3>
+                <span id="transactionsCount">0 条记录</span>
+              </div>
+              <div class="transaction-list" id="transactionsList"></div>
             </section>
             <button class="demo-reset-button" id="resetDemoButton" type="button">重置演示数据</button>
           </section>
@@ -1842,6 +1936,7 @@
 
   <script>
     const API_URL = "http://localhost:3001/api/products";
+    const TRANSACTIONS_URL = "http://localhost:3001/api/transactions";
     const RESET_DEMO_URL = "http://localhost:3001/api/reset-demo-products";
     const grid = document.getElementById("productGrid");
     const statusText = document.getElementById("statusText");
@@ -1898,6 +1993,11 @@
     const favoritesPanel = document.getElementById("favoritesPanel");
     const favoritesCount = document.getElementById("favoritesCount");
     const favoritesList = document.getElementById("favoritesList");
+    const toggleTransactionsButton = document.getElementById("toggleTransactionsButton");
+    const transactionsToggleMark = document.getElementById("transactionsToggleMark");
+    const transactionsPanel = document.getElementById("transactionsPanel");
+    const transactionsCount = document.getElementById("transactionsCount");
+    const transactionsList = document.getElementById("transactionsList");
     const resetDemoButton = document.getElementById("resetDemoButton");
     const FAVORITES_STORAGE_KEY = "qingningji_favorites";
     const MAX_IMAGE_WIDTH = 600;
@@ -1921,8 +2021,11 @@
     let currentDetailProduct = null;
     let currentEditId = "";
     let conversations = [];
+    let transactions = [];
     let myPostsVisible = false;
     let favoritesVisible = false;
+    let transactionsVisible = false;
+    let transactionsLoaded = false;
     let productsLoaded = false;
     let selectedImageData = "";
     let imageUploadToken = 0;
@@ -1940,6 +2043,14 @@
       if (payload && payload.data && !Array.isArray(payload.data)) return payload.data;
       if (payload && payload.product && !Array.isArray(payload.product)) return payload.product;
       return payload || {};
+    }
+
+    function normalizeTransactions(payload) {
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.transactions)) return payload.transactions;
+      if (payload && payload.data && Array.isArray(payload.data.transactions)) return payload.data.transactions;
+      return [];
     }
 
     function field(product, keys, fallback) {
@@ -2084,6 +2195,24 @@
       const number = Number(value);
       if (Number.isFinite(number)) return `￥${number.toFixed(number % 1 === 0 ? 0 : 2)}`;
       return value || "面议";
+    }
+
+    function formatTransactionTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "刚刚";
+
+      return date.toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function transactionChangeClass(toStatus) {
+      if (toStatus === "已预定") return "transaction-change--reserved";
+      if (toStatus === "已出") return "transaction-change--sold";
+      return "transaction-change--available";
     }
 
     function escapeHtml(value) {
@@ -2260,6 +2389,56 @@
       }).join("");
     }
 
+    function renderTransactionsView() {
+      transactionsPanel.hidden = !transactionsVisible;
+      transactionsToggleMark.textContent = transactionsVisible ? "收起" : "展开";
+      transactionsCount.textContent = `${transactions.length} 条记录`;
+
+      if (!transactionsVisible) return;
+
+      if (!transactionsLoaded) {
+        transactionsList.innerHTML = '<div class="transaction-empty">正在加载交易记录...</div>';
+        return;
+      }
+
+      if (!transactions.length) {
+        transactionsList.innerHTML = `
+          <div class="transaction-empty">
+            <h3>暂无交易记录</h3>
+            <p>当你修改商品状态后，记录会显示在这里。</p>
+          </div>
+        `;
+        return;
+      }
+
+      const sortedTransactions = [...transactions].sort((first, second) => {
+        return new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+      });
+
+      transactionsList.innerHTML = sortedTransactions.map((transaction) => {
+        const title = field(transaction, ["title"], "未命名商品");
+        const price = field(transaction, ["price"], "面议");
+        const fromStatus = field(transaction, ["fromStatus"], DEFAULT_PRODUCT_STATUS);
+        const toStatus = field(transaction, ["toStatus"], DEFAULT_PRODUCT_STATUS);
+        const location = field(transaction, ["location"], "校内");
+        const createdAt = field(transaction, ["createdAt"], "");
+
+        return `
+          <article class="transaction-card">
+            <div class="transaction-top">
+              <h4 class="transaction-name">${escapeHtml(title)}</h4>
+              <span class="transaction-price">${escapeHtml(formatPrice(price))}</span>
+            </div>
+            <span class="transaction-change ${transactionChangeClass(toStatus)}">${escapeHtml(fromStatus)} → ${escapeHtml(toStatus)}</span>
+            <div class="transaction-meta">
+              <span class="transaction-location">${escapeHtml(location)}</span>
+              <time class="transaction-time">${escapeHtml(formatTransactionTime(createdAt))}</time>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
     function updateWeeklyFlowStats() {
       const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
       const favoriteCount = readFavoriteIds().filter((id) => validIds.has(id)).length;
@@ -2277,6 +2456,7 @@
       myPostsToggleMark.textContent = myPostsVisible ? "收起" : "展开";
       myPostsCount.textContent = `${allProducts.length} 件商品`;
       renderFavoritesView();
+      renderTransactionsView();
 
       if (!allProducts.length) {
         myPostsList.innerHTML = '<div class="my-post-empty">还没有发布商品，点击底部发布按钮添加闲置物品。</div>';
@@ -2607,9 +2787,39 @@
         }
 
         await loadProducts();
+        if (transactionsVisible) await loadTransactions();
       } catch (error) {
         alert("状态修改失败，请确认后端已启动");
         if (button) button.disabled = false;
+      }
+    }
+
+    async function loadTransactions() {
+      if (!transactionsVisible) return;
+
+      transactionsLoaded = false;
+      renderTransactionsView();
+
+      try {
+        const response = await fetch(TRANSACTIONS_URL);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const payload = await response.json();
+        transactions = normalizeTransactions(payload);
+        transactionsLoaded = true;
+        renderTransactionsView();
+      } catch (error) {
+        transactions = [];
+        transactionsLoaded = true;
+        transactionsCount.textContent = "0 条记录";
+        transactionsList.innerHTML = `
+          <div class="transaction-empty">
+            <h3>交易记录加载失败</h3>
+            <p>请确认后端已启动后再试。</p>
+          </div>
+        `;
       }
     }
 
@@ -2654,6 +2864,9 @@
         }
 
         await loadProducts();
+        transactions = [];
+        transactionsLoaded = true;
+        renderTransactionsView();
         showTab("home");
       } catch (error) {
         alert("重置失败，请确认后端已启动");
@@ -2711,6 +2924,12 @@
     toggleFavoritesButton.addEventListener("click", () => {
       favoritesVisible = !favoritesVisible;
       renderProfileView();
+    });
+
+    toggleTransactionsButton.addEventListener("click", () => {
+      transactionsVisible = !transactionsVisible;
+      renderProfileView();
+      if (transactionsVisible) loadTransactions();
     });
 
     myPostsList.addEventListener("click", (event) => {

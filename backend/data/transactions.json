@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1,
+    "productId": 1,
+    "title": "二手马克笔套装 60色",
+    "price": 28,
+    "fromStatus": "已预定",
+    "toStatus": "在售",
+    "seller": "艺术学院 小李",
+    "location": "教学楼A座",
+    "createdAt": "2026-05-25T00:42:39.547Z"
+  },
+  {
+    "id": 2,
+    "productId": 1,
+    "title": "二手马克笔套装 60色",
+    "price": 28,
+    "fromStatus": "在售",
+    "toStatus": "已出",
+    "seller": "艺术学院 小李",
+    "location": "教学楼A座",
+    "createdAt": "2026-05-25T00:42:40.430Z"
+  }
+]
