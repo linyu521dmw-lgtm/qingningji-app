@@ -94,6 +94,40 @@ Authorization: Bearer <access_token>
 
 只有 `owner_id` 与当前登录用户 id 一致时，才允许编辑、删除和修改状态。老演示商品如果 `owner_id` 为空，`PATCH /api/products/:id` 会兼容允许当前登录用户编辑一次，并自动绑定给该用户。
 
+### 演示数据重置
+
+线上默认不允许调用：
+
+```text
+POST /api/reset-demo-products
+```
+
+未开启时会返回：
+
+```json
+{ "error": "Demo reset is disabled in production" }
+```
+
+本地开发如需恢复演示数据，可以在后端环境变量中显式开启：
+
+```bash
+ALLOW_DEMO_RESET=true
+```
+
+线上如确实需要管理员重置，不要公开开启 `ALLOW_DEMO_RESET`，而是配置：
+
+```bash
+ADMIN_RESET_TOKEN=your-private-admin-token
+```
+
+管理员请求时带上：
+
+```http
+x-admin-token: your-private-admin-token
+```
+
+不要把 `ADMIN_RESET_TOKEN` 写入前端代码或 `frontend/config.js`。
+
 ## 前端如何配置线上 API 地址
 
 前端已经预留 `config.js` 加载位置。部署时可以在 `frontend` 目录下新建：

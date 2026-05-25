@@ -3216,6 +3216,10 @@
         });
 
         if (!response.ok) {
+          if (response.status === 403) {
+            alert("线上版本不支持重置演示数据");
+            return;
+          }
           throw new Error(`HTTP ${response.status}`);
         }
 
@@ -3595,7 +3599,7 @@
         renderTransactionsView();
         showTab("home");
       } catch (error) {
-        alert("重置失败，请确认后端已启动");
+        alert("重置失败，请稍后再试");
       } finally {
         resetDemoButton.disabled = false;
       }

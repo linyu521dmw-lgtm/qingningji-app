@@ -19,6 +19,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const allowedOrigins = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : DEFAULT_ALLOWED_ORIGINS;
+const ALLOWED_HEADERS = "Content-Type, Authorization, x-admin-token";
 const DATA_DIR = path.join(__dirname, "data");
 const PRODUCTS_FILE = path.join(DATA_DIR, "products.json");
 const DEMO_PRODUCTS_FILE = path.join(DATA_DIR, "demoProducts.json");
@@ -72,7 +73,7 @@ function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
     ...corsHeaders(res.req),
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": ALLOWED_HEADERS,
     "Content-Type": "application/json; charset=utf-8"
   });
   res.end(JSON.stringify(payload));
@@ -185,6 +186,17 @@ function isUnclaimedProduct(product) {
   return Boolean(product && !product.ownerId);
 }
 
+function canResetDemoProducts(req) {
+  if (process.env.ALLOW_DEMO_RESET === "true") {
+    return true;
+  }
+
+  const adminResetToken = process.env.ADMIN_RESET_TOKEN || "";
+  const requestToken = req.headers["x-admin-token"] || "";
+
+  return Boolean(adminResetToken && requestToken && requestToken === adminResetToken);
+}
+
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = url.pathname;
@@ -193,7 +205,7 @@ async function handleRequest(req, res) {
     res.writeHead(204, {
       ...corsHeaders(req),
       "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      "Access-Control-Allow-Headers": ALLOWED_HEADERS
     });
     res.end();
     return;
@@ -231,6 +243,11 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === "POST" && pathname === "/api/reset-demo-products") {
+    if (!canResetDemoProducts(req)) {
+      sendJson(res, 403, { error: "Demo reset is disabled in production" });
+      return;
+    }
+
     try {
       const demoProducts = readProductsFile(DEMO_PRODUCTS_FILE);
       const resetProducts = useSupabase ? await store.resetProducts(demoProducts) : await store.resetProducts(DEMO_PRODUCTS_FILE);
