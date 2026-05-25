@@ -4,9 +4,15 @@
   "private": true,
   "description": "Minimal backend API for Qingningji campus idle exchange app.",
   "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "init-db": "node init-db.js",
     "dev": "node server.js",
     "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.1"
   }
 }

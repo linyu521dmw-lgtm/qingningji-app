@@ -68,6 +68,19 @@ ALLOWED_ORIGINS=https://your-frontend-domain.com,https://your-preview-domain.com
 - `http://localhost:8000`
 - `http://127.0.0.1:8000`
 
+### Supabase
+
+Render 部署后端时需要在 Environment 中配置：
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+后端只有在 `SUPABASE_URL` 和 `SUPABASE_SERVICE_ROLE_KEY` 同时存在时才会连接 Supabase。未配置时会继续使用本地 SQLite/JSON 初始化数据，方便本地开发。
+
+不要把 `SUPABASE_SERVICE_ROLE_KEY` 写进前端或提交到代码仓库。
+
 ## 前端如何配置线上 API 地址
 
 前端已经预留 `config.js` 加载位置。部署时可以在 `frontend` 目录下新建：
@@ -109,9 +122,24 @@ GET /health
 
 部署到 Render、Railway 等平台时，可以把 `/health` 作为服务健康检查路径。
 
+## Supabase 数据源说明
+
+当前后端已经支持 Supabase Postgres。线上 Render 推荐使用 Supabase 保存 `products` 和 `transactions`，本地未配置 Supabase 环境变量时仍会使用 SQLite，并从仓库里的 JSON 文件初始化演示数据。
+
+Supabase 表字段使用 snake_case，例如：
+
+- `image_data`
+- `created_at`
+- `updated_at`
+- `product_id`
+- `from_status`
+- `to_status`
+
+后端会转换为前端需要的 camelCase 字段，例如 `imageData`、`createdAt`、`productId`、`fromStatus`。
+
 ## 为什么不能长期把 JSON 当真实线上数据库
 
-当前项目已经开始迁移到本地 SQLite，但仓库里仍保留 `products.json`、`transactions.json` 和 `demoProducts.json` 作为初始化来源和演示数据。
+仓库里仍保留 `products.json`、`transactions.json` 和 `demoProducts.json` 作为本地初始化来源和演示数据。
 
 JSON 文件不适合作为长期线上数据库，原因包括：
 
@@ -122,17 +150,3 @@ JSON 文件不适合作为长期线上数据库，原因包括：
 - 云端平台可能重启或重建容器，本地文件不一定稳定持久。
 
 真实线上版本应该使用云数据库保存结构化数据，用对象存储保存图片文件。
-
-## 下一步要接 Supabase
-
-下一阶段建议接入 Supabase：
-
-- Supabase Postgres：保存商品、交易记录、收藏、会话、消息等结构化数据。
-- Supabase Auth：处理真实用户登录和校园身份。
-- Supabase Storage：保存商品图片，前端和数据库只保存图片 URL。
-
-迁移顺序建议：
-
-1. 先把 `products` 和 `transactions` 从 SQLite 迁移到 Supabase Postgres。
-2. 再加入 `users`、`favorites`、`conversations`、`messages` 表。
-3. 最后把图片从 `imageData` 改成 `imageUrl`，接入 Supabase Storage。

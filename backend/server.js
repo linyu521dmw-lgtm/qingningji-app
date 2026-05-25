@@ -1,7 +1,8 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const store = require("./sqlite-store");
+const sqliteStore = require("./sqlite-store");
+const supabaseStore = require("./supabase-store");
 
 const PORT = process.env.PORT || 3001;
 const HOST = "0.0.0.0";
@@ -22,6 +23,8 @@ const DATA_DIR = path.join(__dirname, "data");
 const PRODUCTS_FILE = path.join(DATA_DIR, "products.json");
 const DEMO_PRODUCTS_FILE = path.join(DATA_DIR, "demoProducts.json");
 const TRANSACTIONS_FILE = path.join(DATA_DIR, "transactions.json");
+const useSupabase = supabaseStore.isEnabled();
+const store = useSupabase ? supabaseStore : sqliteStore;
 
 const categories = [
   { id: 1, name: "教材资料" },
@@ -52,7 +55,9 @@ function readProductsFile(filePath) {
   return normalizeProducts(storedProducts);
 }
 
-store.initializeDatabase(PRODUCTS_FILE, TRANSACTIONS_FILE);
+if (!useSupabase) {
+  sqliteStore.initializeDatabase(PRODUCTS_FILE, TRANSACTIONS_FILE);
+}
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -127,20 +132,28 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === "GET" && pathname === "/api/products") {
-    sendJson(res, 200, { data: store.listProducts() });
+    try {
+      sendJson(res, 200, { data: await store.listProducts() });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取商品列表失败" });
+    }
     return;
   }
 
   if (req.method === "GET" && pathname === "/api/transactions") {
-    sendJson(res, 200, { data: store.listTransactions() });
+    try {
+      sendJson(res, 200, { data: await store.listTransactions() });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取交易记录失败" });
+    }
     return;
   }
 
   if (req.method === "POST" && pathname === "/api/reset-demo-products") {
     try {
-      readProductsFile(DEMO_PRODUCTS_FILE);
-      const demoProducts = store.resetProducts(DEMO_PRODUCTS_FILE);
-      sendJson(res, 200, { data: demoProducts });
+      const demoProducts = readProductsFile(DEMO_PRODUCTS_FILE);
+      const resetProducts = useSupabase ? await store.resetProducts(demoProducts) : await store.resetProducts(DEMO_PRODUCTS_FILE);
+      sendJson(res, 200, { data: resetProducts });
     } catch (error) {
       sendJson(res, 500, { error: "重置演示数据失败" });
     }
@@ -181,7 +194,11 @@ async function handleRequest(req, res) {
       imageData: typeof body.imageData === "string" ? body.imageData : ""
     };
 
-    sendJson(res, 201, { data: store.createProduct(newProduct) });
+    try {
+      sendJson(res, 201, { data: await store.createProduct(newProduct) });
+    } catch (error) {
+      sendJson(res, 500, { error: "创建商品失败" });
+    }
     return;
   }
 
@@ -207,7 +224,14 @@ async function handleRequest(req, res) {
     }
 
     const productId = Number(productStatusMatch[1]);
-    const product = store.updateProductStatus(productId, body.status);
+    let product;
+
+    try {
+      product = await store.updateProductStatus(productId, body.status);
+    } catch (error) {
+      sendJson(res, 500, { error: "更新商品状态失败" });
+      return;
+    }
 
     if (!product) {
       sendJson(res, 404, { error: "商品不存在" });
@@ -229,7 +253,14 @@ async function handleRequest(req, res) {
     }
 
     const productId = Number(productMatch[1]);
-    const currentProduct = store.getProduct(productId);
+    let currentProduct;
+
+    try {
+      currentProduct = await store.getProduct(productId);
+    } catch (error) {
+      sendJson(res, 500, { error: "获取商品失败" });
+      return;
+    }
 
     if (!currentProduct) {
       sendJson(res, 404, { error: "商品不存在" });
@@ -258,14 +289,34 @@ async function handleRequest(req, res) {
       updates.status = body.status;
     }
 
-    const product = store.updateProduct(productId, updates);
+    let product;
+
+    try {
+      product = await store.updateProduct(productId, updates);
+    } catch (error) {
+      sendJson(res, 500, { error: "更新商品失败" });
+      return;
+    }
+
+    if (!product) {
+      sendJson(res, 404, { error: "商品不存在" });
+      return;
+    }
+
     sendJson(res, 200, { data: product });
     return;
   }
 
   if (req.method === "GET" && productMatch) {
     const productId = Number(productMatch[1]);
-    const product = store.getProduct(productId);
+    let product;
+
+    try {
+      product = await store.getProduct(productId);
+    } catch (error) {
+      sendJson(res, 500, { error: "获取商品失败" });
+      return;
+    }
 
     if (!product) {
       sendJson(res, 404, { error: "Product Not Found" });
@@ -278,7 +329,14 @@ async function handleRequest(req, res) {
 
   if (req.method === "DELETE" && productMatch) {
     const productId = Number(productMatch[1]);
-    const deletedProduct = store.deleteProduct(productId);
+    let deletedProduct;
+
+    try {
+      deletedProduct = await store.deleteProduct(productId);
+    } catch (error) {
+      sendJson(res, 500, { error: "删除商品失败" });
+      return;
+    }
 
     if (!deletedProduct) {
       sendJson(res, 404, { error: "商品不存在" });
