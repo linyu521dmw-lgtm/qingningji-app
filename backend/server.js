@@ -47,6 +47,13 @@ const categories = [
 const productStatuses = ["在售", "已预定", "已出"];
 const defaultProductStatus = "在售";
 const productCategoryNames = ["教材资料", "数码电子", "宿舍生活", "运动户外", "设计生专区"];
+const productCategoryAliases = {
+  教材: "教材资料",
+  数码: "数码电子",
+  生活: "宿舍生活",
+  运动: "运动户外",
+  设计: "设计生专区"
+};
 const maxImageBase64Length = 2 * 1024 * 1024;
 
 function normalizeProducts(storedProducts) {
@@ -154,6 +161,11 @@ function validateLength(value, minLength, maxLength, emptyMessage, lengthMessage
   return { value: trimmedValue };
 }
 
+function normalizeCategory(category) {
+  const normalizedCategory = String(category || "").trim();
+  return productCategoryAliases[normalizedCategory] || normalizedCategory;
+}
+
 function validateProductImageData(imageData) {
   if (imageData === undefined) {
     return { value: undefined };
@@ -208,10 +220,11 @@ function validateProductInput(input) {
 
   const category = validateLength(body.category, 1, 40, "分类不能为空", "分类不合法");
   if (category.error) return { error: category.error };
-  if (!productCategoryNames.includes(category.value)) {
+  const normalizedCategory = normalizeCategory(category.value);
+  if (!productCategoryNames.includes(normalizedCategory)) {
     return { error: "分类不合法" };
   }
-  validated.category = category.value;
+  validated.category = normalizedCategory;
 
   const location = validateLength(body.location, 1, 40, "地点不能为空", "地点不能超过 40 个字");
   if (location.error) return { error: location.error };
