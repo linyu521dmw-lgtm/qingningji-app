@@ -109,13 +109,6 @@ function toSnakeProductUpdates(product) {
   if (product.imageUrl !== undefined) {
     updates.image_url = typeof product.imageUrl === "string" ? product.imageUrl : "";
   }
-  if (product.ownerId !== undefined) {
-    updates.owner_id = product.ownerId || null;
-  }
-  if (product.ownerEmail !== undefined) {
-    updates.owner_email = product.ownerEmail || null;
-  }
-
   if (Object.keys(updates).length > 0) {
     updates.updated_at = nowIso();
   }

@@ -182,10 +182,6 @@ function isProductOwner(product, user) {
   return Boolean(product && user && product.ownerId && product.ownerId === user.id);
 }
 
-function isUnclaimedProduct(product) {
-  return Boolean(product && !product.ownerId);
-}
-
 function canResetDemoProducts(req) {
   if (process.env.ALLOW_DEMO_RESET === "true") {
     return true;
@@ -418,7 +414,7 @@ async function handleRequest(req, res) {
       return;
     }
 
-    if (!isProductOwner(currentProduct, user) && !isUnclaimedProduct(currentProduct)) {
+    if (!isProductOwner(currentProduct, user)) {
       sendJson(res, 403, { error: "只能操作自己发布的商品" });
       return;
     }
@@ -457,11 +453,6 @@ async function handleRequest(req, res) {
       } else if (!useSupabase) {
         updates.imageData = typeof body.imageData === "string" ? body.imageData : "";
       }
-    }
-
-    if (isUnclaimedProduct(currentProduct)) {
-      updates.ownerId = user.id;
-      updates.ownerEmail = user.email || "";
     }
 
     let product;

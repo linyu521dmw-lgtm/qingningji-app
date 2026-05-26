@@ -92,7 +92,7 @@ Authorization: Bearer <access_token>
 - `owner_id = user.id`
 - `owner_email = user.email`
 
-只有 `owner_id` 与当前登录用户 id 一致时，才允许编辑、删除和修改状态。老演示商品如果 `owner_id` 为空，`PATCH /api/products/:id` 会兼容允许当前登录用户编辑一次，并自动绑定给该用户。
+真实产品阶段商品必须有 `owner_id`。只有 `owner_id` 与当前登录用户 id 一致时，才允许编辑、删除和修改状态；如果商品 `owner_id` 为空，后端会直接返回 403，不再允许编辑、删除、修改状态，也不会自动绑定给当前用户。历史无主商品需要先通过 SQL 修复 `owner_id` / `owner_email`，或直接删除。
 
 ### 演示数据重置
 
