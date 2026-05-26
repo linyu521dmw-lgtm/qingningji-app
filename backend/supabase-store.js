@@ -246,6 +246,57 @@ async function listTransactions() {
   return (data || []).map(toCamelTransaction);
 }
 
+async function listFavoriteProducts(userId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("product_id, created_at, products(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  throwIfError(error);
+
+  return (data || [])
+    .map((favorite) => {
+      const product = Array.isArray(favorite.products) ? favorite.products[0] : favorite.products;
+      return toCamelProduct(product);
+    })
+    .filter(Boolean);
+}
+
+async function createFavorite(user, productId) {
+  ensureSupabase();
+  const { error } = await supabase.from("favorites").upsert(
+    {
+      user_id: user.id,
+      user_email: user.email || "",
+      product_id: productId
+    },
+    {
+      onConflict: "user_id,product_id",
+      ignoreDuplicates: true
+    }
+  );
+  throwIfError(error);
+
+  return {
+    productId
+  };
+}
+
+async function deleteFavorite(userId, productId) {
+  ensureSupabase();
+  const { error } = await supabase
+    .from("favorites")
+    .delete()
+    .eq("user_id", userId)
+    .eq("product_id", productId);
+  throwIfError(error);
+
+  return {
+    productId
+  };
+}
+
 async function resetProducts(demoProducts) {
   ensureSupabase();
 
@@ -274,5 +325,8 @@ module.exports = {
   updateProductStatus,
   deleteProduct,
   listTransactions,
+  listFavoriteProducts,
+  createFavorite,
+  deleteFavorite,
   resetProducts
 };

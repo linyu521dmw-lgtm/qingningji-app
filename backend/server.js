@@ -353,6 +353,77 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === "GET" && pathname === "/api/favorites") {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后收藏" });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.listFavoriteProducts(user.id) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取收藏列表失败" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/favorites") {
+    let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后收藏" });
+      return;
+    }
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    const productId = Number(body.productId);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      sendJson(res, 400, { error: "商品不存在" });
+      return;
+    }
+
+    try {
+      const product = await store.getProduct(productId);
+      if (!product) {
+        sendJson(res, 404, { error: "商品不存在" });
+        return;
+      }
+
+      sendJson(res, 200, { data: await store.createFavorite(user, productId) });
+    } catch (error) {
+      sendJson(res, 500, { error: "收藏商品失败" });
+    }
+    return;
+  }
+
+  const favoriteMatch = pathname.match(/^\/api\/favorites\/(\d+)$/);
+
+  if (req.method === "DELETE" && favoriteMatch) {
+    const user = await getUserFromRequest(req);
+    const productId = Number(favoriteMatch[1]);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后收藏" });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.deleteFavorite(user.id, productId) });
+    } catch (error) {
+      sendJson(res, 500, { error: "取消收藏失败" });
+    }
+    return;
+  }
+
   if (req.method === "POST" && pathname === "/api/reset-demo-products") {
     if (!canResetDemoProducts(req)) {
       sendJson(res, 403, { error: "Demo reset is disabled in production" });
@@ -642,7 +713,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/favorites", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

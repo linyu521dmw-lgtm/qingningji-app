@@ -2291,6 +2291,7 @@
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
     const API_URL = `${API_BASE}/api/products`;
+    const FAVORITES_URL = `${API_BASE}/api/favorites`;
     const TRANSACTIONS_URL = `${API_BASE}/api/transactions`;
     const RESET_DEMO_URL = `${API_BASE}/api/reset-demo-products`;
     const grid = document.getElementById("productGrid");
@@ -2398,6 +2399,9 @@
     let currentConversationId = "";
     let conversations = readStoredConversations();
     let transactions = [];
+    let favoriteIds = [];
+    let favoriteProductsCache = [];
+    let favoritesLoaded = false;
     let myPostsVisible = false;
     let favoritesVisible = false;
     let transactionsVisible = false;
@@ -2562,6 +2566,8 @@
 
     function removeProductFromLocalState(id) {
       allProducts = allProducts.filter((product) => String(productId(product)) !== String(id));
+      favoriteIds = favoriteIds.filter((favoriteId) => favoriteId !== String(id));
+      favoriteProductsCache = favoriteProductsCache.filter((product) => String(productId(product)) !== String(id));
     }
 
     function authErrorMessage(error) {
@@ -2618,21 +2624,12 @@
       }
     }
 
-    function writeFavoriteIds(ids) {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...new Set(ids.map((id) => String(id)).filter(Boolean))]));
-    }
-
     function isFavoriteProduct(id) {
-      return readFavoriteIds().includes(String(id));
+      return favoriteIds.includes(String(id));
     }
 
     function favoriteProducts() {
-      const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
-      const nextIds = readFavoriteIds().filter((id) => validIds.has(id));
-      if (productsLoaded) writeFavoriteIds(nextIds);
-      return nextIds
-        .map((id) => allProducts.find((product) => String(productId(product)) === id))
-        .filter(Boolean);
+      return favoriteProductsCache;
     }
 
     function updateFavoriteButtons() {
@@ -2649,17 +2646,105 @@
       });
     }
 
-    function toggleFavorite(id) {
-      if (!id) return;
-      const favoriteIds = readFavoriteIds();
-      const idText = String(id);
-      const nextIds = favoriteIds.includes(idText)
-        ? favoriteIds.filter((item) => item !== idText)
-        : [...favoriteIds, idText];
+    async function loadFavorites() {
+      if (!currentUser()) {
+        favoriteIds = [];
+        favoriteProductsCache = [];
+        favoritesLoaded = false;
+        updateFavoriteButtons();
+        renderFavoritesView();
+        return;
+      }
 
-      writeFavoriteIds(nextIds);
-      updateFavoriteButtons();
-      renderFavoritesView();
+      const token = await getAccessToken();
+      if (!token) {
+        favoriteIds = [];
+        favoriteProductsCache = [];
+        favoritesLoaded = false;
+        updateFavoriteButtons();
+        renderFavoritesView();
+        return;
+      }
+
+      try {
+        const response = await fetch(FAVORITES_URL, {
+          headers: await authHeaders()
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录后收藏",
+              500: "获取收藏列表失败"
+            },
+            "获取收藏列表失败"
+          );
+          alert(message);
+          return;
+        }
+
+        const payload = await response.json();
+        favoriteProductsCache = normalizeProducts(payload);
+        favoriteIds = favoriteProductsCache.map((product) => String(productId(product))).filter(Boolean);
+        favoritesLoaded = true;
+        updateFavoriteButtons();
+        renderFavoritesView();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      }
+    }
+
+    async function toggleFavorite(id) {
+      if (!id) return;
+      const idText = String(id);
+      const token = await requireAccessToken("请先登录后收藏");
+      if (!token) return;
+
+      const isActive = favoriteIds.includes(idText);
+
+      try {
+        const response = await fetch(isActive ? `${FAVORITES_URL}/${encodeURIComponent(idText)}` : FAVORITES_URL, {
+          method: isActive ? "DELETE" : "POST",
+          headers: await authHeaders(
+            isActive
+              ? {}
+              : {
+                  "Content-Type": "application/json"
+                }
+          ),
+          body: isActive ? undefined : JSON.stringify({ productId: idText })
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录后收藏"
+            },
+            isActive ? "取消收藏失败" : "收藏商品失败"
+          );
+          alert(message);
+          return;
+        }
+
+        if (isActive) {
+          favoriteIds = favoriteIds.filter((item) => item !== idText);
+          favoriteProductsCache = favoriteProductsCache.filter((product) => String(productId(product)) !== idText);
+        } else {
+          const product = allProducts.find((item) => String(productId(item)) === idText) || currentDetailProduct;
+          favoriteIds = [...new Set([...favoriteIds, idText])];
+          if (product && !favoriteProductsCache.some((item) => String(productId(item)) === idText)) {
+            favoriteProductsCache = [product, ...favoriteProductsCache];
+          }
+        }
+
+        favoritesLoaded = true;
+        updateFavoriteButtons();
+        renderFavoritesView();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      }
     }
 
     function categoryVisual(category) {
@@ -2883,6 +2968,16 @@
       const products = favoriteProducts();
       favoritesCount.textContent = `${products.length} 件商品`;
 
+      if (!currentUser()) {
+        favoritesList.innerHTML = '<div class="my-post-empty">请先登录后查看自己的收藏。</div>';
+        return;
+      }
+
+      if (!favoritesLoaded) {
+        favoritesList.innerHTML = '<div class="favorite-empty">正在加载收藏...</div>';
+        return;
+      }
+
       if (!products.length) {
         favoritesList.innerHTML = `
           <div class="favorite-empty">
@@ -2974,7 +3069,7 @@
 
     function updateWeeklyFlowStats() {
       const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
-      const favoriteCount = readFavoriteIds().filter((id) => validIds.has(id)).length;
+      const favoriteCount = favoriteIds.filter((id) => validIds.has(id)).length;
       const ownProducts = allProducts.filter(isOwnProduct);
 
       weeklyPublishedCount.textContent = ownProducts.length;
@@ -3734,6 +3829,7 @@
       writeAuthSession(normalizeAuthSession(data.session));
       authPasswordInput.value = "";
       authTip.textContent = "";
+      await loadFavorites();
     }
 
     async function signupWithEmail() {
@@ -3763,6 +3859,7 @@
         writeAuthSession(normalizeAuthSession(data.session));
         authPasswordInput.value = "";
         authTip.textContent = "";
+        await loadFavorites();
         return;
       }
 
@@ -3774,11 +3871,17 @@
         await supabaseAuth.auth.signOut();
       }
       writeAuthSession(null);
+      favoriteIds = [];
+      favoriteProductsCache = [];
+      favoritesLoaded = false;
+      updateFavoriteButtons();
+      renderFavoritesView();
       authTip.textContent = "";
     }
 
     async function initializeAuthSession() {
       await getAccessToken();
+      await loadFavorites();
       renderActiveView();
     }
 
@@ -3858,6 +3961,7 @@
     toggleFavoritesButton.addEventListener("click", () => {
       favoritesVisible = !favoritesVisible;
       renderProfileView();
+      if (favoritesVisible && currentUser() && !favoritesLoaded) loadFavorites();
     });
 
     toggleTransactionsButton.addEventListener("click", () => {
