@@ -2472,6 +2472,12 @@
       }
     }
 
+    async function getRequestErrorMessage(response, statusMessages, fallbackMessage) {
+      const message = await getApiErrorMessage(response);
+      if (message) return message;
+      return statusMessages[response.status] || fallbackMessage;
+    }
+
     function productOwnerId(product) {
       return field(product, ["ownerId", "owner_id"], "");
     }
@@ -3979,19 +3985,25 @@
         });
 
         if (!response.ok) {
-          const message = await getApiErrorMessage(response);
-          if (response.status === 400 && message) {
-            alert(message);
-            editTip.textContent = message;
-            return;
-          }
-          throw new Error(`HTTP ${response.status}`);
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              400: "保存信息不符合要求",
+              401: "请先登录后操作",
+              403: "没有权限编辑",
+              500: "服务器处理失败"
+            },
+            "保存失败，请稍后再试"
+          );
+          alert(message);
+          editTip.textContent = message;
+          return;
         }
 
         closeEditModal();
         await loadProducts();
       } catch (error) {
-        editTip.textContent = "保存失败，请确认后端已启动";
+        editTip.textContent = "网络连接失败，请检查网络或稍后再试";
       } finally {
         submitEditButton.disabled = false;
       }
@@ -4043,13 +4055,19 @@
         });
 
         if (!response.ok) {
-          const message = await getApiErrorMessage(response);
-          if (response.status === 400 && message) {
-            alert(message);
-            publishTip.textContent = message;
-            return;
-          }
-          throw new Error(`HTTP ${response.status}`);
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              400: "发布信息不符合要求",
+              401: "请先登录后发布",
+              403: "没有权限发布",
+              500: "服务器处理失败"
+            },
+            "发布失败，请稍后再试"
+          );
+          alert(message);
+          publishTip.textContent = message;
+          return;
         }
 
         publishForm.reset();
@@ -4057,7 +4075,7 @@
         closePublishModal();
         await loadProducts();
       } catch (error) {
-        publishTip.textContent = "发布失败，请确认后端已启动";
+        publishTip.textContent = "网络连接失败，请检查网络或稍后再试";
       } finally {
         submitPublishButton.disabled = false;
       }
