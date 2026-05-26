@@ -46,6 +46,8 @@ const categories = [
 
 const productStatuses = ["在售", "已预定", "已出"];
 const defaultProductStatus = "在售";
+const productCategoryNames = ["教材资料", "数码电子", "宿舍生活", "运动户外", "设计生专区"];
+const maxImageBase64Length = 2 * 1024 * 1024;
 
 function normalizeProducts(storedProducts) {
   if (!Array.isArray(storedProducts)) {
@@ -133,6 +135,106 @@ function getUploadableImageData(imageData) {
 
 function isUploadableProductImage(imageData) {
   return Boolean(getUploadableImageData(imageData));
+}
+
+function validateLength(value, minLength, maxLength, emptyMessage, lengthMessage) {
+  if (value === undefined || value === null) {
+    return { error: emptyMessage };
+  }
+
+  const trimmedValue = String(value).trim();
+  if (trimmedValue.length < minLength) {
+    return { error: emptyMessage };
+  }
+
+  if (trimmedValue.length > maxLength) {
+    return { error: lengthMessage };
+  }
+
+  return { value: trimmedValue };
+}
+
+function validateProductImageData(imageData) {
+  if (imageData === undefined) {
+    return { value: undefined };
+  }
+
+  if (imageData === null || imageData === "") {
+    return { value: "" };
+  }
+
+  if (typeof imageData !== "string") {
+    return { error: "图片数据不合法" };
+  }
+
+  if (!imageData.startsWith("data:image/")) {
+    return { value: imageData };
+  }
+
+  const match = imageData.match(/^data:image\/(png|jpe?g|webp);base64,([\s\S]+)$/i);
+  if (!match) {
+    return { error: "图片格式只支持 jpg、png、webp" };
+  }
+
+  const base64Data = match[2].replace(/\s/g, "");
+  if (!base64Data || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+    return { error: "图片数据不合法" };
+  }
+
+  if (base64Data.length > maxImageBase64Length) {
+    return { error: "图片不能超过 2MB" };
+  }
+
+  return { value: imageData };
+}
+
+function validateProductInput(input) {
+  const body = input && typeof input === "object" ? input : {};
+  const validated = {};
+
+  const title = validateLength(body.title, 1, 40, "商品名称不能为空", "商品名称不能超过 40 个字");
+  if (title.error) return { error: title.error };
+  validated.title = title.value;
+
+  if (body.price === undefined || body.price === null || body.price === "") {
+    return { error: "价格必须是 0 到 9999 之间的数字" };
+  }
+
+  const price = Number(body.price);
+  if (!Number.isFinite(price) || price < 0 || price > 9999) {
+    return { error: "价格必须是 0 到 9999 之间的数字" };
+  }
+  validated.price = price;
+
+  const category = validateLength(body.category, 1, 40, "分类不能为空", "分类不合法");
+  if (category.error) return { error: category.error };
+  if (!productCategoryNames.includes(category.value)) {
+    return { error: "分类不合法" };
+  }
+  validated.category = category.value;
+
+  const location = validateLength(body.location, 1, 40, "地点不能为空", "地点不能超过 40 个字");
+  if (location.error) return { error: location.error };
+  validated.location = location.value;
+
+  const seller = validateLength(body.seller, 1, 30, "卖家不能为空", "卖家不能超过 30 个字");
+  if (seller.error) return { error: seller.error };
+  validated.seller = seller.value;
+
+  if (body.status !== undefined) {
+    if (!productStatuses.includes(body.status)) {
+      return { error: "商品状态不合法" };
+    }
+    validated.status = body.status;
+  }
+
+  const imageData = validateProductImageData(body.imageData);
+  if (imageData.error) return { error: imageData.error };
+  if (imageData.value !== undefined) {
+    validated.imageData = imageData.value;
+  }
+
+  return { data: validated };
 }
 
 async function uploadProductImage(imageData, productId) {
@@ -270,28 +372,21 @@ async function handleRequest(req, res) {
       return;
     }
 
-    const requiredFields = ["title", "price", "category", "location", "seller"];
-    const missingFields = requiredFields.filter((field) => {
-      const value = body[field];
-      return value === undefined || value === null || value === "";
-    });
-
-    if (missingFields.length > 0) {
-      sendJson(res, 400, {
-        error: "缺少必要字段",
-        missingFields
-      });
+    const validation = validateProductInput(body);
+    if (validation.error) {
+      sendJson(res, 400, { error: validation.error });
       return;
     }
 
-    const submittedImageData = typeof body.imageData === "string" ? body.imageData : "";
+    const productInput = validation.data;
+    const submittedImageData = typeof productInput.imageData === "string" ? productInput.imageData : "";
     const shouldUploadImage = useSupabase && isUploadableProductImage(submittedImageData);
     const newProduct = {
-      title: body.title,
-      price: body.price,
-      category: body.category,
-      location: body.location,
-      seller: body.seller,
+      title: productInput.title,
+      price: productInput.price,
+      category: productInput.category,
+      location: productInput.location,
+      seller: productInput.seller,
       status: defaultProductStatus,
       imageData: shouldUploadImage ? "" : submittedImageData,
       ownerId: user.id,
@@ -419,39 +514,36 @@ async function handleRequest(req, res) {
       return;
     }
 
-    if (body.status !== undefined) {
-      if (!productStatuses.includes(body.status)) {
-        sendJson(res, 400, {
-          error: "商品状态不合法",
-          allowedStatuses: productStatuses
-        });
-        return;
-      }
+    const validation = validateProductInput(body);
+    if (validation.error) {
+      sendJson(res, 400, { error: validation.error });
+      return;
     }
 
+    const productInput = validation.data;
     const editableFields = ["title", "price", "category", "location", "seller"];
     const updates = {};
     editableFields.forEach((field) => {
-      if (body[field] !== undefined) {
-        updates[field] = body[field];
+      if (productInput[field] !== undefined) {
+        updates[field] = productInput[field];
       }
     });
 
-    if (body.status !== undefined) {
-      updates.status = body.status;
+    if (productInput.status !== undefined) {
+      updates.status = productInput.status;
     }
 
-    if (body.imageData !== undefined) {
-      if (useSupabase && isUploadableProductImage(body.imageData)) {
+    if (productInput.imageData !== undefined) {
+      if (useSupabase && isUploadableProductImage(productInput.imageData)) {
         try {
-          updates.imageUrl = await uploadProductImage(body.imageData, productId);
+          updates.imageUrl = await uploadProductImage(productInput.imageData, productId);
           updates.imageData = "";
         } catch (error) {
           sendJson(res, 500, { error: "上传商品图片失败" });
           return;
         }
       } else if (!useSupabase) {
-        updates.imageData = typeof body.imageData === "string" ? body.imageData : "";
+        updates.imageData = typeof productInput.imageData === "string" ? productInput.imageData : "";
       }
     }
 

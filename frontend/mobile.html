@@ -2463,6 +2463,15 @@
       return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
     }
 
+    async function getApiErrorMessage(response) {
+      try {
+        const payload = await response.json();
+        return payload && typeof payload.error === "string" ? payload.error : "";
+      } catch (error) {
+        return "";
+      }
+    }
+
     function productOwnerId(product) {
       return field(product, ["ownerId", "owner_id"], "");
     }
@@ -3970,6 +3979,12 @@
         });
 
         if (!response.ok) {
+          const message = await getApiErrorMessage(response);
+          if (response.status === 400 && message) {
+            alert(message);
+            editTip.textContent = message;
+            return;
+          }
           throw new Error(`HTTP ${response.status}`);
         }
 
@@ -4028,6 +4043,12 @@
         });
 
         if (!response.ok) {
+          const message = await getApiErrorMessage(response);
+          if (response.status === 400 && message) {
+            alert(message);
+            publishTip.textContent = message;
+            return;
+          }
           throw new Error(`HTTP ${response.status}`);
         }
 
