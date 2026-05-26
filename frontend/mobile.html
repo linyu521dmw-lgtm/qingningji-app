@@ -2454,13 +2454,58 @@
       return currentAuthSession && currentAuthSession.user ? currentAuthSession.user : null;
     }
 
+    function normalizeAuthSession(session) {
+      if (!session || !session.access_token || !session.user || !session.user.id) return null;
+      return {
+        accessToken: session.access_token,
+        user: {
+          id: session.user.id,
+          email: session.user.email || ""
+        }
+      };
+    }
+
+    async function getAccessToken() {
+      if (supabaseAuth) {
+        try {
+          const { data } = await supabaseAuth.auth.getSession();
+          const session = normalizeAuthSession(data && data.session);
+          if (session) {
+            writeAuthSession(session);
+            return session.accessToken;
+          }
+        } catch (error) {
+          // Fall back to the local session below.
+        }
+      }
+
+      const storedSession = readAuthSession();
+      if (storedSession) {
+        currentAuthSession = storedSession;
+        return storedSession.accessToken;
+      }
+
+      currentAuthSession = null;
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+
     function currentAccessToken() {
       return currentAuthSession && currentAuthSession.accessToken ? currentAuthSession.accessToken : "";
     }
 
-    function authHeaders(extraHeaders = {}) {
-      const token = currentAccessToken();
+    async function authHeaders(extraHeaders = {}) {
+      const token = await getAccessToken();
       return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
+    }
+
+    async function requireAccessToken(message) {
+      const hadUser = Boolean(currentUser());
+      const token = await getAccessToken();
+      if (token) return token;
+      alert(hadUser ? "登录已过期，请重新登录" : message);
+      showTab("profile");
+      return null;
     }
 
     async function getApiErrorMessage(response) {
@@ -2479,7 +2524,7 @@
     }
 
     const DELETE_PRODUCT_STATUS_MESSAGES = {
-      401: "请先登录后删除",
+      401: "登录已过期，请重新登录",
       403: "只能删除自己发布的商品",
       404: "商品不存在或已被删除",
       500: "服务器处理失败"
@@ -2487,7 +2532,7 @@
 
     const PRODUCT_STATUS_ERROR_MESSAGES = {
       400: "状态修改失败，请确认商品和状态有效",
-      401: "请先登录后操作",
+      401: "登录已过期，请重新登录",
       403: "只能修改自己发布的商品状态",
       404: "商品不存在",
       500: "服务器处理失败"
@@ -3229,7 +3274,8 @@
       }
 
       const product = allProducts.find((item) => String(productId(item)) === String(conversation.id));
-      if (!requireLogin("请先登录后操作。") || !requireOwnProduct(product)) {
+      const token = await requireAccessToken("请先登录后操作。");
+      if (!token || !requireOwnProduct(product)) {
         updateChatReserveAction(conversation);
         return;
       }
@@ -3243,7 +3289,7 @@
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(conversation.id)}/status`, {
           method: "PATCH",
-          headers: authHeaders({
+          headers: await authHeaders({
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({ status: "已预定" })
@@ -3500,7 +3546,8 @@
       }
 
       const product = allProducts.find((item) => String(productId(item)) === String(id)) || currentDetailProduct;
-      if (!requireLogin("请先登录后删除") || !requireOwnProduct(product)) return;
+      const token = await requireAccessToken("请先登录后删除");
+      if (!token || !requireOwnProduct(product)) return;
 
       const confirmed = confirm("确定删除这个商品吗？");
       if (!confirmed) return;
@@ -3510,7 +3557,7 @@
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(id)}`, {
           method: "DELETE",
-          headers: authHeaders()
+          headers: await authHeaders()
         });
 
         if (!response.ok) {
@@ -3536,14 +3583,15 @@
       }
 
       const product = allProducts.find((item) => String(productId(item)) === String(id));
-      if (!requireLogin("请先登录后操作。") || !requireOwnProduct(product)) return;
+      const token = await requireAccessToken("请先登录后操作。");
+      if (!token || !requireOwnProduct(product)) return;
 
       if (button) button.disabled = true;
 
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(id)}/status`, {
           method: "PATCH",
-          headers: authHeaders({
+          headers: await authHeaders({
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({ status: nextStatus })
@@ -3683,13 +3731,7 @@
         return;
       }
 
-      writeAuthSession({
-        accessToken: data.session.access_token,
-        user: {
-          id: data.user.id,
-          email: data.user.email || email
-        }
-      });
+      writeAuthSession(normalizeAuthSession(data.session));
       authPasswordInput.value = "";
       authTip.textContent = "";
     }
@@ -3718,13 +3760,7 @@
       }
 
       if (data.session && data.user) {
-        writeAuthSession({
-          accessToken: data.session.access_token,
-          user: {
-            id: data.user.id,
-            email: data.user.email || email
-          }
-        });
+        writeAuthSession(normalizeAuthSession(data.session));
         authPasswordInput.value = "";
         authTip.textContent = "";
         return;
@@ -3739,6 +3775,11 @@
       }
       writeAuthSession(null);
       authTip.textContent = "";
+    }
+
+    async function initializeAuthSession() {
+      await getAccessToken();
+      renderActiveView();
     }
 
     categoryTabs.forEach((tab) => {
@@ -3963,8 +4004,10 @@
       }
 
       const editingProduct = allProducts.find((item) => String(productId(item)) === String(currentEditId));
-      if (!currentUser() || !currentAccessToken()) {
-        editTip.textContent = "请先登录后操作";
+      const hadUser = Boolean(currentUser());
+      const token = await getAccessToken();
+      if (!token) {
+        editTip.textContent = hadUser ? "登录已过期，请重新登录" : "请先登录后操作";
         return;
       }
       if (!isOwnProduct(editingProduct)) {
@@ -4001,7 +4044,7 @@
       try {
         const response = await fetch(`${API_URL}/${encodeURIComponent(currentEditId)}`, {
           method: "PATCH",
-          headers: authHeaders({
+          headers: await authHeaders({
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({
@@ -4018,7 +4061,7 @@
             response,
             {
               400: "保存信息不符合要求",
-              401: "请先登录后操作",
+              401: "登录已过期，请重新登录",
               403: "没有权限编辑",
               500: "服务器处理失败"
             },
@@ -4041,8 +4084,10 @@
     publishForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      if (!currentUser() || !currentAccessToken()) {
-        publishTip.textContent = "请先登录后发布。";
+      const hadUser = Boolean(currentUser());
+      const token = await getAccessToken();
+      if (!token) {
+        publishTip.textContent = hadUser ? "登录已过期，请重新登录" : "请先登录后发布";
         showTab("profile");
         return;
       }
@@ -4070,7 +4115,7 @@
       try {
         const response = await fetch(API_URL, {
           method: "POST",
-          headers: authHeaders({
+          headers: await authHeaders({
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({
@@ -4088,7 +4133,7 @@
             response,
             {
               400: "发布信息不符合要求",
-              401: "请先登录后发布",
+              401: "登录已过期，请重新登录",
               403: "没有权限发布",
               500: "服务器处理失败"
             },
@@ -4110,7 +4155,7 @@
       }
     });
 
-    loadProducts();
+    initializeAuthSession().finally(loadProducts);
   </script>
 </body>
 </html>
