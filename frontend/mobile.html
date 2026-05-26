@@ -2478,6 +2478,21 @@
       return statusMessages[response.status] || fallbackMessage;
     }
 
+    const DELETE_PRODUCT_STATUS_MESSAGES = {
+      401: "请先登录后删除",
+      403: "只能删除自己发布的商品",
+      404: "商品不存在",
+      500: "服务器处理失败"
+    };
+
+    const PRODUCT_STATUS_ERROR_MESSAGES = {
+      400: "状态修改失败，请确认商品和状态有效",
+      401: "请先登录后操作",
+      403: "只能修改自己发布的商品状态",
+      404: "商品不存在",
+      500: "服务器处理失败"
+    };
+
     function productOwnerId(product) {
       return field(product, ["ownerId", "owner_id"], "");
     }
@@ -3231,7 +3246,10 @@
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          const message = await getRequestErrorMessage(response, PRODUCT_STATUS_ERROR_MESSAGES, "状态修改失败");
+          alert(message);
+          updateChatReserveAction(conversation);
+          return;
         }
 
         conversation.productStatus = "已预定";
@@ -3240,7 +3258,7 @@
         if (transactionsVisible) await loadTransactions();
         renderChatDetail(conversation);
       } catch (error) {
-        alert("预定失败，请确认后端已启动");
+        alert("网络连接失败，请检查网络或稍后再试");
         updateChatReserveAction(conversation);
       }
     }
@@ -3473,7 +3491,7 @@
 
     async function deleteProduct(id, button) {
       if (!id) {
-        alert("删除失败，请确认后端已启动");
+        alert("商品不存在");
         return;
       }
 
@@ -3492,13 +3510,16 @@
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          const message = await getRequestErrorMessage(response, DELETE_PRODUCT_STATUS_MESSAGES, "删除失败");
+          alert(message);
+          if (button) button.disabled = false;
+          return;
         }
 
         await loadProducts();
         closeDetailModal();
       } catch (error) {
-        alert("删除失败，请确认后端已启动");
+        alert("网络连接失败，请检查网络或稍后再试");
         if (button) button.disabled = false;
       }
     }
@@ -3524,13 +3545,16 @@
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          const message = await getRequestErrorMessage(response, PRODUCT_STATUS_ERROR_MESSAGES, "状态修改失败");
+          alert(message);
+          if (button) button.disabled = false;
+          return;
         }
 
         await loadProducts();
         if (transactionsVisible) await loadTransactions();
       } catch (error) {
-        alert("状态修改失败，请确认后端已启动");
+        alert("网络连接失败，请检查网络或稍后再试");
         if (button) button.disabled = false;
       }
     }
