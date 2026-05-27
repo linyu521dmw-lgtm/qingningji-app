@@ -170,3 +170,13 @@
 - 用户没有 profile 时，后端会按 Supabase Auth 用户自动创建默认 profile，昵称默认使用邮箱前缀。
 - 商品发布和编辑时，`seller` 不再完全信任前端传值，而是绑定当前登录用户 profile 的 `display_name`。
 - 如果 profile 昵称为空，商品 `seller` 会回退为当前登录邮箱前缀。
+
+## 2026-05-27 订单系统 v1 节点
+
+- Supabase 新增 `orders` 表，承载买家下单、模拟支付、自取完成和取消流程。
+- 后端新增订单接口：`POST /api/orders`、`GET /api/orders`、`PATCH /api/orders/:id/pay-simulate`、`PATCH /api/orders/:id/complete`、`PATCH /api/orders/:id/cancel`。
+- 当前订单支付为模拟支付，不接真实微信、支付宝，也不做青柠币。
+- 订单状态包括：`待支付`、`待自取`、`已完成`、`已取消`。
+- 模拟支付成功后，订单进入待自取，并把商品状态改为 `已预定`。
+- 订单完成后，商品状态改为 `已出`，并写入一条 `transactions` 交易记录。
+- 后续可在该流程基础上接入支付宝或微信支付沙箱。

@@ -3,6 +3,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const productStatuses = ["在售", "已预定", "已出"];
 const defaultProductStatus = "在售";
+const orderStatuses = ["待支付", "待自取", "已完成", "已取消"];
+const paymentStatuses = ["未支付", "已支付"];
+const pickupStatuses = ["待自取", "已自取"];
 
 function isEnabled() {
   return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
@@ -128,6 +131,33 @@ function toCamelProfile(profile) {
   };
 }
 
+function toCamelOrder(order) {
+  if (!order) {
+    return null;
+  }
+
+  return {
+    id: order.id,
+    productId: order.product_id,
+    buyerId: order.buyer_id || "",
+    buyerEmail: order.buyer_email || "",
+    sellerId: order.seller_id || "",
+    sellerEmail: order.seller_email || "",
+    productTitle: order.product_title || "未命名商品",
+    price: order.price ?? 0,
+    orderStatus: orderStatuses.includes(order.order_status) ? order.order_status : "待支付",
+    paymentStatus: paymentStatuses.includes(order.payment_status) ? order.payment_status : "未支付",
+    pickupStatus: pickupStatuses.includes(order.pickup_status) ? order.pickup_status : "待自取",
+    meetLocation: order.meet_location || "",
+    note: order.note || "",
+    createdAt: order.created_at,
+    updatedAt: order.updated_at,
+    paidAt: order.paid_at || "",
+    completedAt: order.completed_at || "",
+    cancelledAt: order.cancelled_at || ""
+  };
+}
+
 function defaultDisplayName(email) {
   const prefix = String(email || "").split("@")[0].trim();
   return prefix || "校园用户";
@@ -187,6 +217,29 @@ function toSnakeTransaction(transaction) {
     actor_id: transaction.actorId || null,
     actor_email: transaction.actorEmail || null,
     created_at: transaction.createdAt || nowIso()
+  };
+}
+
+function toSnakeOrder(order) {
+  const currentTime = nowIso();
+  return {
+    product_id: order.productId,
+    buyer_id: order.buyerId,
+    buyer_email: order.buyerEmail || "",
+    seller_id: order.sellerId,
+    seller_email: order.sellerEmail || "",
+    product_title: order.productTitle || "未命名商品",
+    price: order.price ?? 0,
+    order_status: order.orderStatus || "待支付",
+    payment_status: order.paymentStatus || "未支付",
+    pickup_status: order.pickupStatus || "待自取",
+    meet_location: order.meetLocation || "",
+    note: order.note || "",
+    created_at: order.createdAt || currentTime,
+    updated_at: order.updatedAt || currentTime,
+    paid_at: order.paidAt || null,
+    completed_at: order.completedAt || null,
+    cancelled_at: order.cancelledAt || null
   };
 }
 
@@ -363,6 +416,154 @@ async function listTransactions() {
   const { data, error } = await supabase.from("transactions").select("*").order("id", { ascending: true });
   throwIfError(error);
   return (data || []).map(toCamelTransaction);
+}
+
+async function createOrder(user, product) {
+  ensureSupabase();
+  const currentTime = nowIso();
+  const { data, error } = await supabase
+    .from("orders")
+    .insert(
+      toSnakeOrder({
+        productId: product.id,
+        buyerId: user.id,
+        buyerEmail: user.email || "",
+        sellerId: product.ownerId,
+        sellerEmail: product.ownerEmail || "",
+        productTitle: product.title || "未命名商品",
+        price: product.price,
+        orderStatus: "待支付",
+        paymentStatus: "未支付",
+        pickupStatus: "待自取",
+        meetLocation: product.location || "校内",
+        createdAt: currentTime,
+        updatedAt: currentTime
+      })
+    )
+    .select("*")
+    .single();
+  throwIfError(error);
+  return toCamelOrder(data);
+}
+
+async function listOrdersForUser(userId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
+  throwIfError(error);
+  return (data || []).map(toCamelOrder);
+}
+
+async function getOrder(id) {
+  ensureSupabase();
+  const { data, error } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
+  throwIfError(error);
+  return toCamelOrder(data);
+}
+
+async function updateOrder(id, updates) {
+  ensureSupabase();
+  const nextUpdates = {
+    updated_at: nowIso()
+  };
+
+  if (updates.orderStatus !== undefined) nextUpdates.order_status = updates.orderStatus;
+  if (updates.paymentStatus !== undefined) nextUpdates.payment_status = updates.paymentStatus;
+  if (updates.pickupStatus !== undefined) nextUpdates.pickup_status = updates.pickupStatus;
+  if (updates.paidAt !== undefined) nextUpdates.paid_at = updates.paidAt || null;
+  if (updates.completedAt !== undefined) nextUpdates.completed_at = updates.completedAt || null;
+  if (updates.cancelledAt !== undefined) nextUpdates.cancelled_at = updates.cancelledAt || null;
+
+  const { data, error } = await supabase.from("orders").update(nextUpdates).eq("id", id).select("*").maybeSingle();
+  throwIfError(error);
+  return toCamelOrder(data);
+}
+
+async function simulatePayOrder(order) {
+  ensureSupabase();
+  const currentTime = nowIso();
+  const updatedOrder = await updateOrder(order.id, {
+    paymentStatus: "已支付",
+    orderStatus: "待自取",
+    paidAt: currentTime
+  });
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      status: "已预定",
+      updated_at: currentTime
+    })
+    .eq("id", order.productId);
+  throwIfError(error);
+
+  return updatedOrder;
+}
+
+async function completeOrder(order, actor = {}) {
+  ensureSupabase();
+  const currentTime = nowIso();
+  const currentProduct = await getProduct(order.productId);
+  const updatedOrder = await updateOrder(order.id, {
+    orderStatus: "已完成",
+    pickupStatus: "已自取",
+    completedAt: currentTime
+  });
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      status: "已出",
+      updated_at: currentTime
+    })
+    .eq("id", order.productId);
+  throwIfError(error);
+
+  if (currentProduct && currentProduct.status !== "已出") {
+    const { error: transactionError } = await supabase.from("transactions").insert(
+      toSnakeTransaction({
+        productId: currentProduct.id,
+        title: currentProduct.title,
+        price: currentProduct.price,
+        fromStatus: currentProduct.status,
+        toStatus: "已出",
+        seller: currentProduct.seller,
+        location: currentProduct.location,
+        actorId: actor.id,
+        actorEmail: actor.email,
+        createdAt: currentTime
+      })
+    );
+    throwIfError(transactionError);
+  }
+
+  return updatedOrder;
+}
+
+async function cancelOrder(order) {
+  ensureSupabase();
+  const currentTime = nowIso();
+  const updatedOrder = await updateOrder(order.id, {
+    orderStatus: "已取消",
+    cancelledAt: currentTime
+  });
+  const currentProduct = await getProduct(order.productId);
+
+  if (currentProduct && currentProduct.status === "已预定") {
+    const { error } = await supabase
+      .from("products")
+      .update({
+        status: "在售",
+        updated_at: currentTime
+      })
+      .eq("id", order.productId);
+    throwIfError(error);
+  }
+
+  return updatedOrder;
 }
 
 async function listFavoriteProducts(userId) {
@@ -558,6 +759,12 @@ module.exports = {
   updateProductStatus,
   deleteProduct,
   listTransactions,
+  createOrder,
+  listOrdersForUser,
+  getOrder,
+  simulatePayOrder,
+  completeOrder,
+  cancelOrder,
   listFavoriteProducts,
   createFavorite,
   deleteFavorite,

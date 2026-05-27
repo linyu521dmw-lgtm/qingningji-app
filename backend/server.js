@@ -348,6 +348,14 @@ function isConversationParticipant(conversation, user) {
   );
 }
 
+function isOrderParticipant(order, user) {
+  return Boolean(
+    order &&
+    user &&
+    (order.buyerId === user.id || order.sellerId === user.id)
+  );
+}
+
 function canResetDemoProducts(req) {
   if (process.env.ALLOW_DEMO_RESET === "true") {
     return true;
@@ -503,6 +511,7 @@ async function handleRequest(req, res) {
   }
 
   const favoriteMatch = pathname.match(/^\/api\/favorites\/(\d+)$/);
+  const orderActionMatch = pathname.match(/^\/api\/orders\/([^/]+)\/(pay-simulate|complete|cancel)$/);
 
   if (req.method === "DELETE" && favoriteMatch) {
     const user = await getUserFromRequest(req);
@@ -659,6 +668,160 @@ async function handleRequest(req, res) {
       sendJson(res, 500, { error: "发送消息失败" });
     }
     return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/orders") {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.listOrdersForUser(user.id) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取订单失败" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/orders") {
+    let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录后购买" });
+      return;
+    }
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    const productId = Number(body.productId);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      sendJson(res, 400, { error: "商品不存在" });
+      return;
+    }
+
+    try {
+      const product = await store.getProduct(productId);
+      if (!product) {
+        sendJson(res, 404, { error: "商品不存在" });
+        return;
+      }
+
+      if (isProductOwner(product, user)) {
+        sendJson(res, 400, { error: "不能购买自己发布的商品" });
+        return;
+      }
+
+      if (!product.ownerId) {
+        sendJson(res, 400, { error: "该商品缺少卖家信息，暂时无法购买" });
+        return;
+      }
+
+      if (product.status === "已出") {
+        sendJson(res, 400, { error: "商品已出，不能购买" });
+        return;
+      }
+
+      if (product.status === "已预定") {
+        sendJson(res, 400, { error: "商品已被预定" });
+        return;
+      }
+
+      sendJson(res, 201, { data: await store.createOrder(user, product) });
+    } catch (error) {
+      sendJson(res, 500, { error: "创建订单失败" });
+    }
+    return;
+  }
+
+  if (req.method === "PATCH" && orderActionMatch) {
+    const user = await getUserFromRequest(req);
+    const orderId = orderActionMatch[1];
+    const action = orderActionMatch[2];
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      const order = await store.getOrder(orderId);
+      if (!order) {
+        sendJson(res, 404, { error: "订单不存在" });
+        return;
+      }
+
+      if (!isOrderParticipant(order, user)) {
+        sendJson(res, 403, { error: "无权操作该订单" });
+        return;
+      }
+
+      if (action === "pay-simulate") {
+        if (order.buyerId !== user.id) {
+          sendJson(res, 403, { error: "只有买家可以支付订单" });
+          return;
+        }
+
+        if (order.orderStatus !== "待支付") {
+          sendJson(res, 400, { error: "订单不是待支付状态" });
+          return;
+        }
+
+        sendJson(res, 200, { data: await store.simulatePayOrder(order) });
+        return;
+      }
+
+      if (action === "complete") {
+        if (order.paymentStatus !== "已支付") {
+          sendJson(res, 400, { error: "订单未支付，不能完成" });
+          return;
+        }
+
+        if (order.orderStatus === "已完成") {
+          sendJson(res, 400, { error: "订单已完成" });
+          return;
+        }
+
+        if (order.orderStatus === "已取消") {
+          sendJson(res, 400, { error: "订单已取消" });
+          return;
+        }
+
+        sendJson(res, 200, {
+          data: await store.completeOrder(order, {
+            id: user.id,
+            email: user.email || ""
+          })
+        });
+        return;
+      }
+
+      if (action === "cancel") {
+        if (order.orderStatus === "已完成") {
+          sendJson(res, 400, { error: "已完成订单不能取消" });
+          return;
+        }
+
+        if (order.orderStatus === "已取消") {
+          sendJson(res, 400, { error: "订单已取消" });
+          return;
+        }
+
+        sendJson(res, 200, { data: await store.cancelOrder(order) });
+        return;
+      }
+    } catch (error) {
+      sendJson(res, 500, { error: "订单操作失败" });
+      return;
+    }
   }
 
   if (req.method === "POST" && pathname === "/api/reset-demo-products") {
@@ -953,7 +1116,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/orders", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch || orderActionMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

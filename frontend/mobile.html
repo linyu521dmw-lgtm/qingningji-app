@@ -1026,7 +1026,8 @@
 
     .my-posts-panel,
     .favorites-panel,
-    .transactions-panel {
+    .transactions-panel,
+    .orders-panel {
       display: grid;
       gap: 13px;
       margin-top: 18px;
@@ -1054,10 +1055,117 @@
 
     .my-post-list,
     .favorite-list,
-    .transaction-list {
+    .transaction-list,
+    .order-list {
       display: grid;
       gap: 12px;
       padding-bottom: 12px;
+    }
+
+    .order-columns {
+      display: grid;
+      gap: 12px;
+    }
+
+    .order-column {
+      display: grid;
+      gap: 9px;
+    }
+
+    .order-column-title {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .order-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 8px 20px rgba(31, 45, 42, 0.05);
+    }
+
+    .order-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .order-name {
+      min-width: 0;
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 900;
+      word-break: break-word;
+    }
+
+    .order-price {
+      flex: 0 0 auto;
+      color: var(--lime-dark);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .order-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .order-badge {
+      padding: 5px 8px;
+      border-radius: 999px;
+      color: var(--lime-dark);
+      font-size: 11px;
+      font-weight: 900;
+      background: var(--lime-soft);
+    }
+
+    .order-meta {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .order-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .order-action-button {
+      min-height: 34px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      color: white;
+      font-size: 12px;
+      font-weight: 900;
+      background: var(--lime);
+      cursor: pointer;
+    }
+
+    .order-action-button.secondary {
+      color: var(--lime-dark);
+      background: var(--lime-soft);
+    }
+
+    .order-empty {
+      padding: 16px 14px;
+      border: 1px dashed rgba(50, 200, 109, 0.28);
+      border-radius: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      background: rgba(255, 255, 255, 0.72);
     }
 
     .favorite-card,
@@ -2233,6 +2341,7 @@
               <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
               <button class="menu-item" id="toggleFavoritesButton" type="button"><span>我的收藏</span><span id="favoritesToggleMark">展开</span></button>
               <button class="menu-item" id="toggleTransactionsButton" type="button"><span>交易记录</span><span id="transactionsToggleMark">展开</span></button>
+              <button class="menu-item" id="toggleOrdersButton" type="button"><span>我的订单</span><span id="ordersToggleMark">展开</span></button>
               <div class="menu-item"><span>设置</span><span>›</span></div>
             </div>
             <section class="my-posts-panel" id="myPostsPanel" hidden>
@@ -2255,6 +2364,22 @@
                 <span id="transactionsCount">0 条记录</span>
               </div>
               <div class="transaction-list" id="transactionsList"></div>
+            </section>
+            <section class="orders-panel" id="ordersPanel" hidden>
+              <div class="panel-title-row">
+                <h3>我的订单</h3>
+                <span id="ordersCount">0 个订单</span>
+              </div>
+              <div class="order-columns">
+                <div class="order-column">
+                  <h4 class="order-column-title">我买到的</h4>
+                  <div class="order-list" id="buyerOrdersList"></div>
+                </div>
+                <div class="order-column">
+                  <h4 class="order-column-title">我卖出的</h4>
+                  <div class="order-list" id="sellerOrdersList"></div>
+                </div>
+              </div>
             </section>
             <button class="demo-reset-button" id="resetDemoButton" type="button">重置演示数据</button>
           </section>
@@ -2298,6 +2423,7 @@
           <div class="modal-body" id="detailBody"></div>
           <div class="modal-actions">
             <button class="modal-button primary" id="contactSellerButton" type="button">联系卖家</button>
+            <button class="modal-button primary" id="buyProductButton" type="button">立即购买</button>
             <button class="modal-button detail-favorite-button" id="detailFavoriteButton" type="button">♡ 收藏</button>
             <button class="modal-button detail-delete-button" id="deleteDetailButton" type="button">删除商品</button>
             <button class="modal-button secondary" id="closeDetailButton" type="button">关闭</button>
@@ -2424,6 +2550,7 @@
     const PROFILE_URL = `${API_BASE}/api/profile`;
     const FAVORITES_URL = `${API_BASE}/api/favorites`;
     const CONVERSATIONS_URL = `${API_BASE}/api/conversations`;
+    const ORDERS_URL = `${API_BASE}/api/orders`;
     const TRANSACTIONS_URL = `${API_BASE}/api/transactions`;
     const RESET_DEMO_URL = `${API_BASE}/api/reset-demo-products`;
     const grid = document.getElementById("productGrid");
@@ -2438,6 +2565,7 @@
     const detailBody = document.getElementById("detailBody");
     const closeDetailButton = document.getElementById("closeDetailButton");
     const contactSellerButton = document.getElementById("contactSellerButton");
+    const buyProductButton = document.getElementById("buyProductButton");
     const detailFavoriteButton = document.getElementById("detailFavoriteButton");
     const deleteDetailButton = document.getElementById("deleteDetailButton");
     const openPublishButton = document.getElementById("openPublishButton");
@@ -2501,6 +2629,12 @@
     const transactionsPanel = document.getElementById("transactionsPanel");
     const transactionsCount = document.getElementById("transactionsCount");
     const transactionsList = document.getElementById("transactionsList");
+    const toggleOrdersButton = document.getElementById("toggleOrdersButton");
+    const ordersToggleMark = document.getElementById("ordersToggleMark");
+    const ordersPanel = document.getElementById("ordersPanel");
+    const ordersCount = document.getElementById("ordersCount");
+    const buyerOrdersList = document.getElementById("buyerOrdersList");
+    const sellerOrdersList = document.getElementById("sellerOrdersList");
     const editProfileButton = document.getElementById("editProfileButton");
     const resetDemoButton = document.getElementById("resetDemoButton");
     const profileName = document.getElementById("profileName");
@@ -2536,6 +2670,8 @@
     let currentConversationId = "";
     let conversations = [];
     let conversationsLoaded = false;
+    let orders = [];
+    let ordersLoaded = false;
     let transactions = [];
     let favoriteIds = [];
     let favoriteProductsCache = [];
@@ -2545,6 +2681,7 @@
     let myPostsVisible = false;
     let favoritesVisible = false;
     let transactionsVisible = false;
+    let ordersVisible = false;
     let transactionsLoaded = false;
     let productsLoaded = false;
     let selectedImageData = "";
@@ -2613,6 +2750,34 @@
       if (Array.isArray(payload.data)) return payload.data;
       if (Array.isArray(payload.transactions)) return payload.transactions;
       if (payload && payload.data && Array.isArray(payload.data.transactions)) return payload.data.transactions;
+      return [];
+    }
+
+    function normalizeOrder(order) {
+      return {
+        id: String(order.id || ""),
+        productId: String(order.productId || order.product_id || ""),
+        buyerId: String(order.buyerId || order.buyer_id || ""),
+        buyerEmail: String(order.buyerEmail || order.buyer_email || ""),
+        sellerId: String(order.sellerId || order.seller_id || ""),
+        sellerEmail: String(order.sellerEmail || order.seller_email || ""),
+        productTitle: String(order.productTitle || order.product_title || "未命名商品"),
+        price: order.price ?? 0,
+        orderStatus: String(order.orderStatus || order.order_status || "待支付"),
+        paymentStatus: String(order.paymentStatus || order.payment_status || "未支付"),
+        pickupStatus: String(order.pickupStatus || order.pickup_status || "待自取"),
+        meetLocation: String(order.meetLocation || order.meet_location || ""),
+        note: String(order.note || ""),
+        createdAt: order.createdAt || order.created_at || "",
+        paidAt: order.paidAt || order.paid_at || "",
+        completedAt: order.completedAt || order.completed_at || "",
+        cancelledAt: order.cancelledAt || order.cancelled_at || ""
+      };
+    }
+
+    function normalizeOrders(payload) {
+      if (Array.isArray(payload)) return payload.map(normalizeOrder).filter((order) => order.id);
+      if (Array.isArray(payload.data)) return payload.data.map(normalizeOrder).filter((order) => order.id);
       return [];
     }
 
@@ -3329,6 +3494,89 @@
       }).join("");
     }
 
+    function canPayOrder(order) {
+      const user = currentUser();
+      return Boolean(user && order.buyerId === user.id && order.orderStatus === "待支付");
+    }
+
+    function canCompleteOrder(order) {
+      const user = currentUser();
+      return Boolean(
+        user
+        && (order.buyerId === user.id || order.sellerId === user.id)
+        && order.paymentStatus === "已支付"
+        && order.orderStatus !== "已完成"
+        && order.orderStatus !== "已取消"
+      );
+    }
+
+    function canCancelOrder(order) {
+      const user = currentUser();
+      return Boolean(
+        user
+        && (order.buyerId === user.id || order.sellerId === user.id)
+        && order.orderStatus !== "已完成"
+        && order.orderStatus !== "已取消"
+      );
+    }
+
+    function renderOrderCard(order, role) {
+      const contactLabel = role === "buyer" ? "卖家" : "买家";
+      const contact = role === "buyer" ? order.sellerEmail : order.buyerEmail;
+      const actions = [
+        canPayOrder(order) ? `<button class="order-action-button" type="button" data-order-action="pay" data-order-id="${escapeHtml(order.id)}">模拟支付成功</button>` : "",
+        canCompleteOrder(order) ? `<button class="order-action-button" type="button" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">确认完成</button>` : "",
+        canCancelOrder(order) ? `<button class="order-action-button secondary" type="button" data-order-action="cancel" data-order-id="${escapeHtml(order.id)}">取消订单</button>` : ""
+      ].filter(Boolean).join("");
+
+      return `
+        <article class="order-card">
+          <div class="order-top">
+            <h4 class="order-name">${escapeHtml(order.productTitle)}</h4>
+            <span class="order-price">${escapeHtml(formatPrice(order.price))}</span>
+          </div>
+          <div class="order-badges">
+            <span class="order-badge">${escapeHtml(order.orderStatus)}</span>
+            <span class="order-badge">${escapeHtml(order.paymentStatus)}</span>
+            <span class="order-badge">${escapeHtml(order.pickupStatus)}</span>
+          </div>
+          <p class="order-meta">${escapeHtml(contactLabel)}：${escapeHtml(contact || "未记录")}</p>
+          ${order.meetLocation ? `<p class="order-meta">自取地点：${escapeHtml(order.meetLocation)}</p>` : ""}
+          ${actions ? `<div class="order-actions">${actions}</div>` : ""}
+        </article>
+      `;
+    }
+
+    function renderOrdersView() {
+      ordersPanel.hidden = !ordersVisible;
+      ordersToggleMark.textContent = ordersVisible ? "收起" : "展开";
+      ordersCount.textContent = `${orders.length} 个订单`;
+
+      if (!ordersVisible) return;
+
+      if (!currentUser()) {
+        buyerOrdersList.innerHTML = '<div class="order-empty">请先登录后查看订单。</div>';
+        sellerOrdersList.innerHTML = "";
+        return;
+      }
+
+      if (!ordersLoaded) {
+        buyerOrdersList.innerHTML = '<div class="order-empty">正在加载订单...</div>';
+        sellerOrdersList.innerHTML = '<div class="order-empty">正在加载订单...</div>';
+        return;
+      }
+
+      const user = currentUser();
+      const buyerOrders = orders.filter((order) => order.buyerId === user.id);
+      const sellerOrders = orders.filter((order) => order.sellerId === user.id);
+      buyerOrdersList.innerHTML = buyerOrders.length
+        ? buyerOrders.map((order) => renderOrderCard(order, "buyer")).join("")
+        : '<div class="order-empty">还没有买到的订单。</div>';
+      sellerOrdersList.innerHTML = sellerOrders.length
+        ? sellerOrders.map((order) => renderOrderCard(order, "seller")).join("")
+        : '<div class="order-empty">还没有卖出的订单。</div>';
+    }
+
     function updateWeeklyFlowStats() {
       const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
       const favoriteCount = favoritesLoaded
@@ -3361,11 +3609,13 @@
       myPostsCount.textContent = `${ownProducts.length} 件商品`;
       renderFavoritesView();
       renderTransactionsView();
+      renderOrdersView();
 
       if (!user) {
         myPostsPanel.hidden = true;
         favoritesPanel.hidden = true;
         transactionsPanel.hidden = true;
+        ordersPanel.hidden = true;
         myPostsList.innerHTML = '<div class="my-post-empty">请先登录后查看自己的发布。</div>';
         return;
       }
@@ -3670,6 +3920,47 @@
       }
     }
 
+    async function loadOrders() {
+      if (!currentUser()) {
+        orders = [];
+        ordersLoaded = false;
+        renderOrdersView();
+        return;
+      }
+
+      const token = await getAccessToken();
+      if (!token) {
+        orders = [];
+        ordersLoaded = false;
+        renderOrdersView();
+        return;
+      }
+
+      try {
+        const response = await fetch(ORDERS_URL, {
+          headers: await authHeaders()
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录"
+            },
+            "获取订单失败"
+          );
+          alert(message);
+          return;
+        }
+
+        orders = normalizeOrders(await response.json());
+        ordersLoaded = true;
+        renderOrdersView();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      }
+    }
+
     async function loadConversationMessages(conversationId) {
       const conversation = conversations.find((item) => String(item.id) === String(conversationId));
       if (!conversation || conversation.messagesLoading) return;
@@ -3885,6 +4176,55 @@
       }
     }
 
+    async function createCurrentOrder() {
+      if (!currentDetailProduct || !currentDetailId) return;
+
+      if (isOwnProduct(currentDetailProduct)) {
+        alert("不能购买自己发布的商品");
+        return;
+      }
+
+      const token = await requireAccessToken("请先登录后购买");
+      if (!token) return;
+
+      buyProductButton.disabled = true;
+      buyProductButton.textContent = "创建中...";
+
+      try {
+        const response = await fetch(ORDERS_URL, {
+          method: "POST",
+          headers: await authHeaders({
+            "Content-Type": "application/json"
+          }),
+          body: JSON.stringify({ productId: currentDetailId })
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              400: "创建订单失败",
+              401: "请先登录后购买",
+              403: "无权购买该商品"
+            },
+            "创建订单失败"
+          );
+          alert(message);
+          renderDetail(currentDetailProduct, currentDetailId);
+          return;
+        }
+
+        alert("订单已创建，请完成支付");
+        ordersVisible = true;
+        closeDetailModal();
+        showTab("profile");
+        await loadOrders();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+        renderDetail(currentDetailProduct, currentDetailId);
+      }
+    }
+
     function openDetailModal() {
       detailModal.classList.add("open");
       detailModal.setAttribute("aria-hidden", "false");
@@ -3995,6 +4335,8 @@
       detailBody.innerHTML = '<p class="modal-error">正在获取商品详情</p>';
       contactSellerButton.disabled = true;
       contactSellerButton.textContent = "联系卖家";
+      buyProductButton.disabled = true;
+      buyProductButton.textContent = "立即购买";
       detailFavoriteButton.disabled = true;
       detailFavoriteButton.dataset.favoriteId = "";
       detailFavoriteButton.textContent = "♡ 收藏";
@@ -4014,6 +4356,8 @@
       const imageData = productImageData(product);
       const status = productStatus(product);
       const isSold = status === "已出";
+      const isReserved = status === "已预定";
+      const isOwn = isOwnProduct(product);
 
       setDetailVisual(category, imageData);
       detailCategory.textContent = category;
@@ -4037,6 +4381,14 @@
       `;
       contactSellerButton.disabled = isSold;
       contactSellerButton.textContent = isSold ? "已出，无法联系" : "联系卖家";
+      buyProductButton.disabled = isSold || isReserved || isOwn;
+      buyProductButton.textContent = isOwn
+        ? "自己的商品"
+        : isSold
+          ? "已出，无法购买"
+          : isReserved
+            ? "已预定"
+            : "立即购买";
       detailFavoriteButton.disabled = !currentDetailId;
       detailFavoriteButton.dataset.favoriteId = currentDetailId;
       updateFavoriteButtons();
@@ -4053,6 +4405,8 @@
       detailBody.innerHTML = '<p class="modal-error">商品详情加载失败，请确认后端已启动</p>';
       contactSellerButton.disabled = true;
       contactSellerButton.textContent = "联系卖家";
+      buyProductButton.disabled = true;
+      buyProductButton.textContent = "立即购买";
       detailFavoriteButton.disabled = true;
       detailFavoriteButton.dataset.favoriteId = "";
       detailFavoriteButton.textContent = "♡ 收藏";
@@ -4187,6 +4541,56 @@
       }
     }
 
+    async function updateOrderAction(orderId, action) {
+      const actionLabels = {
+        pay: "模拟支付成功",
+        complete: "确认完成",
+        cancel: "取消订单"
+      };
+      const actionPaths = {
+        pay: "pay-simulate",
+        complete: "complete",
+        cancel: "cancel"
+      };
+
+      if (!orderId || !actionPaths[action]) return;
+
+      if (action === "cancel" && !confirm("确定取消这个订单吗？")) {
+        return;
+      }
+
+      const token = await requireAccessToken("请先登录");
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${ORDERS_URL}/${encodeURIComponent(orderId)}/${actionPaths[action]}`, {
+          method: "PATCH",
+          headers: await authHeaders()
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              400: `${actionLabels[action]}失败`,
+              401: "请先登录",
+              403: "无权操作该订单",
+              404: "订单不存在"
+            },
+            `${actionLabels[action]}失败`
+          );
+          alert(message);
+          return;
+        }
+
+        await loadOrders();
+        await loadProducts();
+        await loadTransactions(true);
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      }
+    }
+
     async function loadProducts() {
       try {
         const response = await fetch(API_URL);
@@ -4283,6 +4687,7 @@
       await loadProfile();
       await loadFavorites();
       await loadTransactions(true);
+      await loadOrders();
       await loadConversations();
     }
 
@@ -4316,6 +4721,7 @@
         await loadProfile();
         await loadFavorites();
         await loadTransactions(true);
+        await loadOrders();
         await loadConversations();
         return;
       }
@@ -4388,6 +4794,9 @@
       favoritesLoaded = false;
       currentProfile = null;
       profileLoaded = false;
+      orders = [];
+      ordersLoaded = false;
+      ordersVisible = false;
       conversations = [];
       conversationsLoaded = false;
       transactions = [];
@@ -4405,6 +4814,7 @@
       await loadProfile();
       await loadFavorites();
       await loadTransactions(true);
+      await loadOrders();
       await loadConversations();
       renderActiveView();
     }
@@ -4506,7 +4916,19 @@
       if (transactionsVisible) loadTransactions();
     });
 
+    toggleOrdersButton.addEventListener("click", () => {
+      ordersVisible = !ordersVisible;
+      renderProfileView();
+      if (ordersVisible && currentUser() && !ordersLoaded) loadOrders();
+    });
+
     editProfileButton.addEventListener("click", editProfileDisplayName);
+
+    ordersPanel.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-order-action]");
+      if (!button) return;
+      updateOrderAction(button.dataset.orderId || "", button.dataset.orderAction || "");
+    });
 
     myPostsList.addEventListener("click", (event) => {
       const statusButton = event.target.closest(".my-post-status-button");
@@ -4567,6 +4989,7 @@
 
     openPublishButton.addEventListener("click", openPublishModal);
     contactSellerButton.addEventListener("click", contactCurrentSeller);
+    buyProductButton.addEventListener("click", createCurrentOrder);
     detailFavoriteButton.addEventListener("click", () => {
       toggleFavorite(currentDetailId);
     });
