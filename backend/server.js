@@ -735,8 +735,19 @@ async function handleRequest(req, res) {
         return;
       }
 
+      const activeOrder = await store.getActiveOrderForProduct(product.id);
+      if (activeOrder) {
+        sendJson(res, 400, { error: "该商品已有进行中的订单" });
+        return;
+      }
+
       sendJson(res, 201, { data: await store.createOrder(user, product) });
     } catch (error) {
+      const message = String(error && error.message ? error.message : "");
+      if (message.includes("duplicate") || message.includes("unique")) {
+        sendJson(res, 400, { error: "该商品已有进行中的订单" });
+        return;
+      }
       sendJson(res, 500, { error: "创建订单失败" });
     }
     return;
@@ -775,16 +786,17 @@ async function handleRequest(req, res) {
           return;
         }
 
+        const product = await store.getProduct(order.productId);
+        if (!product || product.status !== "在售") {
+          sendJson(res, 400, { error: "商品状态已变化，无法支付" });
+          return;
+        }
+
         sendJson(res, 200, { data: await store.simulatePayOrder(order) });
         return;
       }
 
       if (action === "complete") {
-        if (order.paymentStatus !== "已支付") {
-          sendJson(res, 400, { error: "订单未支付，不能完成" });
-          return;
-        }
-
         if (order.orderStatus === "已完成") {
           sendJson(res, 400, { error: "订单已完成" });
           return;
@@ -792,6 +804,16 @@ async function handleRequest(req, res) {
 
         if (order.orderStatus === "已取消") {
           sendJson(res, 400, { error: "订单已取消" });
+          return;
+        }
+
+        if (order.orderStatus !== "待自取") {
+          sendJson(res, 400, { error: "订单不是待自取状态" });
+          return;
+        }
+
+        if (order.paymentStatus !== "已支付") {
+          sendJson(res, 400, { error: "订单未支付，不能完成" });
           return;
         }
 

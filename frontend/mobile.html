@@ -3505,8 +3505,7 @@
         user
         && (order.buyerId === user.id || order.sellerId === user.id)
         && order.paymentStatus === "已支付"
-        && order.orderStatus !== "已完成"
-        && order.orderStatus !== "已取消"
+        && order.orderStatus === "待自取"
       );
     }
 
@@ -3515,8 +3514,7 @@
       return Boolean(
         user
         && (order.buyerId === user.id || order.sellerId === user.id)
-        && order.orderStatus !== "已完成"
-        && order.orderStatus !== "已取消"
+        && (order.orderStatus === "待支付" || order.orderStatus === "待自取")
       );
     }
 
@@ -4181,6 +4179,17 @@
 
       if (isOwnProduct(currentDetailProduct)) {
         alert("不能购买自己发布的商品");
+        return;
+      }
+
+      const status = productStatus(currentDetailProduct);
+      if (status === "已出") {
+        alert("商品已出，不能购买");
+        return;
+      }
+
+      if (status === "已预定") {
+        alert("商品已被预定");
         return;
       }
 

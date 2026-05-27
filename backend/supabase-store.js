@@ -464,6 +464,20 @@ async function getOrder(id) {
   return toCamelOrder(data);
 }
 
+async function getActiveOrderForProduct(productId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("product_id", productId)
+    .in("order_status", ["待支付", "待自取"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  throwIfError(error);
+  return toCamelOrder(data);
+}
+
 async function updateOrder(id, updates) {
   ensureSupabase();
   const nextUpdates = {
@@ -546,13 +560,14 @@ async function completeOrder(order, actor = {}) {
 async function cancelOrder(order) {
   ensureSupabase();
   const currentTime = nowIso();
+  const shouldReleaseProduct = ["待支付", "待自取"].includes(order.orderStatus);
   const updatedOrder = await updateOrder(order.id, {
     orderStatus: "已取消",
     cancelledAt: currentTime
   });
   const currentProduct = await getProduct(order.productId);
 
-  if (currentProduct && currentProduct.status === "已预定") {
+  if (shouldReleaseProduct && currentProduct && currentProduct.status === "已预定") {
     const { error } = await supabase
       .from("products")
       .update({
@@ -762,6 +777,7 @@ module.exports = {
   createOrder,
   listOrdersForUser,
   getOrder,
+  getActiveOrderForProduct,
   simulatePayOrder,
   completeOrder,
   cancelOrder,
