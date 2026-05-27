@@ -2765,9 +2765,11 @@
         price: order.price ?? 0,
         orderStatus: String(order.orderStatus || order.order_status || "待支付"),
         paymentStatus: String(order.paymentStatus || order.payment_status || "未支付"),
+        paymentProvider: String(order.paymentProvider || order.payment_provider || order.latestPayment?.provider || order.latest_payment?.provider || ""),
         pickupStatus: String(order.pickupStatus || order.pickup_status || "待自取"),
         meetLocation: String(order.meetLocation || order.meet_location || ""),
         note: String(order.note || ""),
+        latestPayment: order.latestPayment || order.latest_payment || null,
         createdAt: order.createdAt || order.created_at || "",
         paidAt: order.paidAt || order.paid_at || "",
         completedAt: order.completedAt || order.completed_at || "",
@@ -3521,6 +3523,10 @@
     function renderOrderCard(order, role) {
       const contactLabel = role === "buyer" ? "卖家" : "买家";
       const contact = role === "buyer" ? order.sellerEmail : order.buyerEmail;
+      const paymentProvider = order.paymentProvider || (order.latestPayment && order.latestPayment.provider) || "";
+      const paymentDetail = order.paymentStatus === "已支付" && paymentProvider
+        ? `<p class="order-meta">支付方式：${escapeHtml(paymentProvider)} · 支付状态：${escapeHtml(order.paymentStatus)}</p>`
+        : "";
       const actions = [
         canPayOrder(order) ? `<button class="order-action-button" type="button" data-order-action="pay" data-order-id="${escapeHtml(order.id)}">模拟支付成功</button>` : "",
         canCompleteOrder(order) ? `<button class="order-action-button" type="button" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">确认完成</button>` : "",
@@ -3539,6 +3545,7 @@
             <span class="order-badge">${escapeHtml(order.pickupStatus)}</span>
           </div>
           <p class="order-meta">${escapeHtml(contactLabel)}：${escapeHtml(contact || "未记录")}</p>
+          ${paymentDetail}
           ${order.meetLocation ? `<p class="order-meta">自取地点：${escapeHtml(order.meetLocation)}</p>` : ""}
           ${actions ? `<div class="order-actions">${actions}</div>` : ""}
         </article>

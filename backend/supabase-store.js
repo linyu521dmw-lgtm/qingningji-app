@@ -154,7 +154,34 @@ function toCamelOrder(order) {
     updatedAt: order.updated_at,
     paidAt: order.paid_at || "",
     completedAt: order.completed_at || "",
-    cancelledAt: order.cancelled_at || ""
+    cancelledAt: order.cancelled_at || "",
+    paymentProvider: order.paymentProvider || "",
+    latestPayment: order.latestPayment || null
+  };
+}
+
+function toCamelPaymentRecord(payment) {
+  if (!payment) {
+    return null;
+  }
+
+  return {
+    id: payment.id,
+    orderId: payment.order_id,
+    productId: payment.product_id,
+    payerId: payment.payer_id || "",
+    payerEmail: payment.payer_email || "",
+    provider: payment.provider || "mock",
+    outTradeNo: payment.out_trade_no || "",
+    providerTradeNo: payment.provider_trade_no || "",
+    amount: payment.amount ?? 0,
+    paymentStatus: payment.payment_status || "未支付",
+    payUrl: payment.pay_url || "",
+    notifyPayload: payment.notify_payload || null,
+    rawResponse: payment.raw_response || null,
+    createdAt: payment.created_at,
+    paidAt: payment.paid_at || "",
+    failedAt: payment.failed_at || ""
   };
 }
 
@@ -241,6 +268,40 @@ function toSnakeOrder(order) {
     completed_at: order.completedAt || null,
     cancelled_at: order.cancelledAt || null
   };
+}
+
+function makeMockOutTradeNo(orderId) {
+  const compactTime = new Date().toISOString().replace(/[-:.TZ]/g, "");
+  return `QN${compactTime}${String(orderId).replace(/[^A-Za-z0-9]/g, "")}`;
+}
+
+function attachLatestPayments(orders, paymentRecords) {
+  const latestByOrderId = new Map();
+
+  for (const paymentRecord of paymentRecords) {
+    const orderId = String(paymentRecord.orderId || "");
+    const current = latestByOrderId.get(orderId);
+    const currentTime = current ? Date.parse(current.createdAt || "") || 0 : 0;
+    const nextTime = Date.parse(paymentRecord.createdAt || "") || 0;
+
+    if (!current || nextTime >= currentTime) {
+      latestByOrderId.set(orderId, paymentRecord);
+    }
+  }
+
+  return orders.map((order) => {
+    const latestPayment = latestByOrderId.get(String(order.id));
+    if (!latestPayment) {
+      return order;
+    }
+
+    return {
+      ...order,
+      paymentProvider: latestPayment.provider,
+      paymentStatus: latestPayment.paymentStatus || order.paymentStatus,
+      latestPayment
+    };
+  });
 }
 
 function ensureSupabase() {
@@ -454,7 +515,19 @@ async function listOrdersForUser(userId) {
     .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
     .order("created_at", { ascending: false });
   throwIfError(error);
-  return (data || []).map(toCamelOrder);
+  const orders = (data || []).map(toCamelOrder);
+  if (!orders.length) {
+    return orders;
+  }
+
+  const { data: paymentData, error: paymentError } = await supabase
+    .from("payment_records")
+    .select("*")
+    .in("order_id", orders.map((order) => order.id))
+    .order("created_at", { ascending: false });
+  throwIfError(paymentError);
+
+  return attachLatestPayments(orders, (paymentData || []).map(toCamelPaymentRecord));
 }
 
 async function getOrder(id) {
@@ -496,9 +569,77 @@ async function updateOrder(id, updates) {
   return toCamelOrder(data);
 }
 
-async function simulatePayOrder(order) {
+async function createOrUpdateMockPaymentRecord(order, user, paidAt = nowIso()) {
+  ensureSupabase();
+  const { data: existingRecords, error: selectError } = await supabase
+    .from("payment_records")
+    .select("*")
+    .eq("order_id", order.id)
+    .eq("provider", "mock")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  throwIfError(selectError);
+
+  const existingRecord = (existingRecords || [])[0];
+  const rawResponse = {
+    provider: "mock",
+    result: "success",
+    message: "mock payment success",
+    orderId: order.id,
+    productId: order.productId,
+    paidAt
+  };
+  const paymentPayload = {
+    order_id: order.id,
+    product_id: order.productId,
+    payer_id: user.id,
+    payer_email: user.email || "",
+    provider: "mock",
+    out_trade_no: existingRecord && existingRecord.out_trade_no ? existingRecord.out_trade_no : makeMockOutTradeNo(order.id),
+    provider_trade_no: null,
+    amount: order.price ?? 0,
+    payment_status: "已支付",
+    pay_url: null,
+    notify_payload: null,
+    raw_response: rawResponse,
+    paid_at: paidAt,
+    failed_at: null
+  };
+
+  if (existingRecord) {
+    const { data, error } = await supabase
+      .from("payment_records")
+      .update(paymentPayload)
+      .eq("id", existingRecord.id)
+      .select("*")
+      .single();
+    throwIfError(error);
+    return toCamelPaymentRecord(data);
+  }
+
+  const { data, error } = await supabase
+    .from("payment_records")
+    .insert({
+      ...paymentPayload,
+      created_at: paidAt
+    })
+    .select("*")
+    .single();
+  throwIfError(error);
+  return toCamelPaymentRecord(data);
+}
+
+async function simulatePayOrder(order, user) {
   ensureSupabase();
   const currentTime = nowIso();
+  const paymentRecord = await createOrUpdateMockPaymentRecord(
+    order,
+    {
+      id: user && user.id ? user.id : order.buyerId,
+      email: user && user.email ? user.email : order.buyerEmail || ""
+    },
+    currentTime
+  );
   const updatedOrder = await updateOrder(order.id, {
     paymentStatus: "已支付",
     orderStatus: "待自取",
@@ -514,7 +655,33 @@ async function simulatePayOrder(order) {
     .eq("id", order.productId);
   throwIfError(error);
 
-  return updatedOrder;
+  return {
+    ...updatedOrder,
+    paymentProvider: paymentRecord.provider,
+    latestPayment: paymentRecord
+  };
+}
+
+async function listPaymentsForUser(userId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("payment_records")
+    .select("*")
+    .eq("payer_id", userId)
+    .order("created_at", { ascending: false });
+  throwIfError(error);
+  return (data || []).map(toCamelPaymentRecord);
+}
+
+async function listPaymentsForOrder(orderId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("payment_records")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false });
+  throwIfError(error);
+  return (data || []).map(toCamelPaymentRecord);
 }
 
 async function completeOrder(order, actor = {}) {
@@ -779,6 +946,8 @@ module.exports = {
   getOrder,
   getActiveOrderForProduct,
   simulatePayOrder,
+  listPaymentsForUser,
+  listPaymentsForOrder,
   completeOrder,
   cancelOrder,
   listFavoriteProducts,

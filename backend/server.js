@@ -511,6 +511,7 @@ async function handleRequest(req, res) {
   }
 
   const favoriteMatch = pathname.match(/^\/api\/favorites\/(\d+)$/);
+  const orderPaymentsMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payments$/);
   const orderActionMatch = pathname.match(/^\/api\/orders\/([^/]+)\/(pay-simulate|complete|cancel)$/);
 
   if (req.method === "DELETE" && favoriteMatch) {
@@ -542,6 +543,22 @@ async function handleRequest(req, res) {
       sendJson(res, 200, { data: await store.listConversationsForUser(user.id) });
     } catch (error) {
       sendJson(res, 500, { error: "获取消息会话失败" });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/payments") {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.listPaymentsForUser(user.id) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取支付记录失败" });
     }
     return;
   }
@@ -753,6 +770,34 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === "GET" && orderPaymentsMatch) {
+    const user = await getUserFromRequest(req);
+    const orderId = orderPaymentsMatch[1];
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      const order = await store.getOrder(orderId);
+      if (!order) {
+        sendJson(res, 404, { error: "订单不存在" });
+        return;
+      }
+
+      if (!isOrderParticipant(order, user)) {
+        sendJson(res, 403, { error: "无权查看该订单支付记录" });
+        return;
+      }
+
+      sendJson(res, 200, { data: await store.listPaymentsForOrder(orderId) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取订单支付记录失败" });
+    }
+    return;
+  }
+
   if (req.method === "PATCH" && orderActionMatch) {
     const user = await getUserFromRequest(req);
     const orderId = orderActionMatch[1];
@@ -792,7 +837,7 @@ async function handleRequest(req, res) {
           return;
         }
 
-        sendJson(res, 200, { data: await store.simulatePayOrder(order) });
+        sendJson(res, 200, { data: await store.simulatePayOrder(order, user) });
         return;
       }
 
@@ -1138,7 +1183,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/orders", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch || orderActionMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/orders", "/api/payments", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch || orderPaymentsMatch || orderActionMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }
