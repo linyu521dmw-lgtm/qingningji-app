@@ -112,6 +112,27 @@ function toCamelMessage(message) {
   };
 }
 
+function toCamelProfile(profile) {
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    id: profile.id,
+    email: profile.email || "",
+    displayName: profile.display_name || "",
+    school: profile.school || "",
+    major: profile.major || "",
+    createdAt: profile.created_at,
+    updatedAt: profile.updated_at
+  };
+}
+
+function defaultDisplayName(email) {
+  const prefix = String(email || "").split("@")[0].trim();
+  return prefix || "校园用户";
+}
+
 function toSnakeProduct(product) {
   const currentTime = nowIso();
 
@@ -186,6 +207,66 @@ async function listProducts() {
   const { data, error } = await supabase.from("products").select("*").order("id", { ascending: true });
   throwIfError(error);
   return (data || []).map(toCamelProduct);
+}
+
+async function getOrCreateProfile(user) {
+  ensureSupabase();
+  const userId = user && user.id;
+
+  if (!userId) {
+    throw new Error("User is required");
+  }
+
+  const email = user.email || "";
+  const currentTime = nowIso();
+  const { data: existingProfile, error: selectError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  throwIfError(selectError);
+
+  if (existingProfile) {
+    return toCamelProfile(existingProfile);
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .insert({
+      id: userId,
+      email,
+      display_name: defaultDisplayName(email),
+      school: "",
+      major: "",
+      created_at: currentTime,
+      updated_at: currentTime
+    })
+    .select("*")
+    .single();
+  throwIfError(error);
+  return toCamelProfile(data);
+}
+
+async function updateProfile(user, profile) {
+  ensureSupabase();
+  const currentProfile = await getOrCreateProfile(user);
+  const updates = {
+    email: user.email || currentProfile.email || "",
+    updated_at: nowIso()
+  };
+
+  if (profile.displayName !== undefined) updates.display_name = profile.displayName;
+  if (profile.school !== undefined) updates.school = profile.school;
+  if (profile.major !== undefined) updates.major = profile.major;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", user.id)
+    .select("*")
+    .single();
+  throwIfError(error);
+  return toCamelProfile(data);
 }
 
 async function getProduct(id) {
@@ -468,6 +549,8 @@ async function resetProducts(demoProducts) {
 
 module.exports = {
   isEnabled,
+  getOrCreateProfile,
+  updateProfile,
   listProducts,
   getProduct,
   createProduct,

@@ -230,9 +230,11 @@ function validateProductInput(input) {
   if (location.error) return { error: location.error };
   validated.location = location.value;
 
-  const seller = validateLength(body.seller, 1, 30, "卖家不能为空", "卖家不能超过 30 个字");
-  if (seller.error) return { error: seller.error };
-  validated.seller = seller.value;
+  if (body.seller !== undefined && body.seller !== null && String(body.seller).trim() !== "") {
+    const seller = validateLength(body.seller, 1, 30, "卖家不能为空", "卖家不能超过 30 个字");
+    if (seller.error) return { error: seller.error };
+    validated.seller = seller.value;
+  }
 
   if (body.status !== undefined) {
     if (!productStatuses.includes(body.status)) {
@@ -245,6 +247,47 @@ function validateProductInput(input) {
   if (imageData.error) return { error: imageData.error };
   if (imageData.value !== undefined) {
     validated.imageData = imageData.value;
+  }
+
+  return { data: validated };
+}
+
+function defaultDisplayName(email) {
+  const prefix = String(email || "").split("@")[0].trim();
+  return prefix || "校园用户";
+}
+
+function profileSellerName(profile, user) {
+  const displayName = profile && typeof profile.displayName === "string" ? profile.displayName.trim() : "";
+  return displayName || defaultDisplayName(user && user.email);
+}
+
+function validateProfileInput(input) {
+  const body = input && typeof input === "object" ? input : {};
+  const validated = {};
+
+  if (body.displayName !== undefined || body.display_name !== undefined) {
+    const displayName = validateLength(
+      body.displayName ?? body.display_name,
+      1,
+      20,
+      "昵称不能为空",
+      "昵称不能超过 20 个字"
+    );
+    if (displayName.error) return { error: displayName.error };
+    validated.displayName = displayName.value;
+  }
+
+  if (body.school !== undefined) {
+    const school = String(body.school || "").trim();
+    if (school.length > 30) return { error: "学校不能超过 30 个字" };
+    validated.school = school;
+  }
+
+  if (body.major !== undefined) {
+    const major = String(body.major || "").trim();
+    if (major.length > 30) return { error: "专业不能超过 30 个字" };
+    validated.major = major;
   }
 
   return { data: validated };
@@ -357,6 +400,52 @@ async function handleRequest(req, res) {
       sendJson(res, 200, { data: await store.listTransactions() });
     } catch (error) {
       sendJson(res, 500, { error: "获取交易记录失败" });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/profile") {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.getOrCreateProfile(user) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取个人资料失败" });
+    }
+    return;
+  }
+
+  if (req.method === "PATCH" && pathname === "/api/profile") {
+    let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    const validation = validateProfileInput(body);
+    if (validation.error) {
+      sendJson(res, 400, { error: validation.error });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.updateProfile(user, validation.data) });
+    } catch (error) {
+      sendJson(res, 500, { error: "更新个人资料失败" });
     }
     return;
   }
@@ -613,19 +702,20 @@ async function handleRequest(req, res) {
     const productInput = validation.data;
     const submittedImageData = typeof productInput.imageData === "string" ? productInput.imageData : "";
     const shouldUploadImage = useSupabase && isUploadableProductImage(submittedImageData);
-    const newProduct = {
-      title: productInput.title,
-      price: productInput.price,
-      category: productInput.category,
-      location: productInput.location,
-      seller: productInput.seller,
-      status: defaultProductStatus,
-      imageData: shouldUploadImage ? "" : submittedImageData,
-      ownerId: user.id,
-      ownerEmail: user.email || ""
-    };
 
     try {
+      const profile = await store.getOrCreateProfile(user);
+      const newProduct = {
+        title: productInput.title,
+        price: productInput.price,
+        category: productInput.category,
+        location: productInput.location,
+        seller: profileSellerName(profile, user),
+        status: defaultProductStatus,
+        imageData: shouldUploadImage ? "" : submittedImageData,
+        ownerId: user.id,
+        ownerEmail: user.email || ""
+      };
       let product = await store.createProduct(newProduct);
 
       if (shouldUploadImage) {
@@ -753,7 +843,7 @@ async function handleRequest(req, res) {
     }
 
     const productInput = validation.data;
-    const editableFields = ["title", "price", "category", "location", "seller"];
+    const editableFields = ["title", "price", "category", "location"];
     const updates = {};
     editableFields.forEach((field) => {
       if (productInput[field] !== undefined) {
@@ -782,6 +872,8 @@ async function handleRequest(req, res) {
     let product;
 
     try {
+      const profile = await store.getOrCreateProfile(user);
+      updates.seller = profileSellerName(profile, user);
       product = await store.updateProduct(productId, updates);
     } catch (error) {
       sendJson(res, 500, { error: "更新商品失败" });
@@ -861,7 +953,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/favorites", "/api/conversations", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

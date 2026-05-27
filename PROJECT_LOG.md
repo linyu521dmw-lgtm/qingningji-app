@@ -162,3 +162,11 @@
 - 聊天详情读取 `messages` 表，发送消息会写入 `messages` 并同步更新 `conversations.last_message` / `last_message_at`。
 - 会话与 Supabase Auth 登录用户绑定；未登录用户不能创建、读取或发送消息。
 - 非会话参与者读取聊天记录或发送消息会返回 403。
+
+## 2026-05-27 用户资料与卖家身份绑定节点
+
+- Supabase 新增 `profiles` 表，用于保存当前登录用户的邮箱、昵称、学校和专业。
+- 后端新增 `GET /api/profile` 和 `PATCH /api/profile`，用于读取和更新当前登录用户资料。
+- 用户没有 profile 时，后端会按 Supabase Auth 用户自动创建默认 profile，昵称默认使用邮箱前缀。
+- 商品发布和编辑时，`seller` 不再完全信任前端传值，而是绑定当前登录用户 profile 的 `display_name`。
+- 如果 profile 昵称为空，商品 `seller` 会回退为当前登录邮箱前缀。

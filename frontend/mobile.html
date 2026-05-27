@@ -2215,7 +2215,7 @@
               <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
               <button class="menu-item" id="toggleFavoritesButton" type="button"><span>我的收藏</span><span id="favoritesToggleMark">展开</span></button>
               <button class="menu-item" id="toggleTransactionsButton" type="button"><span>交易记录</span><span id="transactionsToggleMark">展开</span></button>
-              <div class="menu-item"><span>个人资料</span><span>›</span></div>
+              <button class="menu-item" id="editProfileButton" type="button" hidden><span>修改昵称</span><span>›</span></button>
               <div class="menu-item"><span>设置</span><span>›</span></div>
             </div>
             <section class="my-posts-panel" id="myPostsPanel" hidden>
@@ -2404,6 +2404,7 @@
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
     const API_URL = `${API_BASE}/api/products`;
+    const PROFILE_URL = `${API_BASE}/api/profile`;
     const FAVORITES_URL = `${API_BASE}/api/favorites`;
     const CONVERSATIONS_URL = `${API_BASE}/api/conversations`;
     const TRANSACTIONS_URL = `${API_BASE}/api/transactions`;
@@ -2429,6 +2430,7 @@
     const closePublishButton = document.getElementById("closePublishButton");
     const submitPublishButton = document.getElementById("submitPublishButton");
     const productTitleInput = document.getElementById("productTitle");
+    const productSellerInput = document.getElementById("productSeller");
     const productImageInput = document.getElementById("productImage");
     const imagePreview = document.getElementById("imagePreview");
     const imagePreviewImg = document.getElementById("imagePreviewImg");
@@ -2479,6 +2481,7 @@
     const transactionsPanel = document.getElementById("transactionsPanel");
     const transactionsCount = document.getElementById("transactionsCount");
     const transactionsList = document.getElementById("transactionsList");
+    const editProfileButton = document.getElementById("editProfileButton");
     const resetDemoButton = document.getElementById("resetDemoButton");
     const profileName = document.getElementById("profileName");
     const profileEmail = document.getElementById("profileEmail");
@@ -2517,6 +2520,8 @@
     let favoriteIds = [];
     let favoriteProductsCache = [];
     let favoritesLoaded = false;
+    let currentProfile = null;
+    let profileLoaded = false;
     let myPostsVisible = false;
     let favoritesVisible = false;
     let transactionsVisible = false;
@@ -2591,6 +2596,20 @@
       return [];
     }
 
+    function normalizeProfile(payload) {
+      const profile = payload && payload.data && !Array.isArray(payload.data) ? payload.data : payload;
+      if (!profile || typeof profile !== "object") return null;
+      return {
+        id: String(profile.id || ""),
+        email: String(profile.email || ""),
+        displayName: String(profile.displayName || profile.display_name || ""),
+        school: String(profile.school || ""),
+        major: String(profile.major || ""),
+        createdAt: profile.createdAt || profile.created_at || "",
+        updatedAt: profile.updatedAt || profile.updated_at || ""
+      };
+    }
+
     function readAuthSession() {
       try {
         const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
@@ -2613,6 +2632,24 @@
 
     function currentUser() {
       return currentAuthSession && currentAuthSession.user ? currentAuthSession.user : null;
+    }
+
+    function emailPrefix(email) {
+      return String(email || "").split("@")[0].trim();
+    }
+
+    function currentSellerName() {
+      const user = currentUser();
+      const profileName = currentProfile && currentProfile.displayName ? currentProfile.displayName : "";
+      return profileName || emailPrefix(user && user.email) || "校园用户";
+    }
+
+    function syncSellerInputs() {
+      const sellerName = currentSellerName();
+      productSellerInput.value = sellerName;
+      editProductSellerInput.value = sellerName;
+      productSellerInput.readOnly = true;
+      editProductSellerInput.readOnly = true;
     }
 
     function normalizeAuthSession(session) {
@@ -2801,6 +2838,51 @@
           ? `${active ? "♥" : "♡"} ${label}`
           : active ? "♥" : "♡";
       });
+    }
+
+    async function loadProfile() {
+      if (!currentUser()) {
+        currentProfile = null;
+        profileLoaded = false;
+        syncSellerInputs();
+        renderProfileView();
+        return;
+      }
+
+      const token = await getAccessToken();
+      if (!token) {
+        currentProfile = null;
+        profileLoaded = false;
+        syncSellerInputs();
+        renderProfileView();
+        return;
+      }
+
+      try {
+        const response = await fetch(PROFILE_URL, {
+          headers: await authHeaders()
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              500: "获取个人资料失败"
+            },
+            "获取个人资料失败"
+          );
+          authTip.textContent = message;
+          return;
+        }
+
+        currentProfile = normalizeProfile(await response.json());
+        profileLoaded = true;
+        syncSellerInputs();
+        renderProfileView();
+      } catch (error) {
+        authTip.textContent = "网络连接失败，请稍后再试";
+      }
     }
 
     async function loadFavorites() {
@@ -3241,12 +3323,15 @@
     function renderProfileView() {
       const user = currentUser();
       const ownProducts = allProducts.filter(isOwnProduct);
+      const displayName = user ? currentSellerName() : "未登录";
 
-      profileName.textContent = user ? "校园用户" : "未登录";
+      profileName.textContent = displayName;
       profileEmail.textContent = user ? user.email : "登录后可以发布和管理自己的商品";
       authForm.hidden = Boolean(user);
       logoutButton.hidden = !user;
+      editProfileButton.hidden = !user;
       publishedCount.textContent = `${ownProducts.length} 件`;
+      syncSellerInputs();
       updateWeeklyFlowStats();
       myPostsPanel.hidden = !myPostsVisible;
       myPostsToggleMark.textContent = myPostsVisible ? "收起" : "展开";
@@ -3787,6 +3872,8 @@
     function openPublishModal() {
       if (!requireLogin("请先登录后发布。")) return;
       publishTip.textContent = "";
+      if (!profileLoaded) loadProfile();
+      syncSellerInputs();
       publishModal.classList.add("open");
       publishModal.setAttribute("aria-hidden", "false");
       productTitleInput.focus();
@@ -3805,7 +3892,8 @@
       editProductPriceInput.value = field(product, ["price", "amount"], "");
       editProductCategoryInput.value = productCategory(product);
       editProductLocationInput.value = field(product, ["location", "place", "campus", "address"], "");
-      editProductSellerInput.value = field(product, ["seller", "sellerName", "user", "username", "owner"], "");
+      editProductSellerInput.value = currentSellerName() || field(product, ["seller", "sellerName", "user", "username", "owner"], "");
+      editProductSellerInput.readOnly = true;
       editModal.classList.add("open");
       editModal.setAttribute("aria-hidden", "false");
       editProductTitleInput.focus();
@@ -4163,6 +4251,7 @@
       writeAuthSession(normalizeAuthSession(data.session));
       authPasswordInput.value = "";
       authTip.textContent = "";
+      await loadProfile();
       await loadFavorites();
       await loadConversations();
     }
@@ -4194,12 +4283,68 @@
         writeAuthSession(normalizeAuthSession(data.session));
         authPasswordInput.value = "";
         authTip.textContent = "";
+        await loadProfile();
         await loadFavorites();
         await loadConversations();
         return;
       }
 
       authTip.textContent = "注册成功，请到邮箱确认后再登录";
+    }
+
+    async function editProfileDisplayName() {
+      const user = currentUser();
+      if (!user) {
+        alert("请先登录");
+        return;
+      }
+
+      const nextName = prompt("请输入昵称（1-20 个字）", currentSellerName());
+      if (nextName === null) return;
+
+      const displayName = nextName.trim();
+      if (!displayName || displayName.length > 20) {
+        alert("昵称需为 1-20 个字");
+        return;
+      }
+
+      const token = await getAccessToken();
+      if (!token) {
+        alert("请先登录");
+        return;
+      }
+
+      try {
+        const response = await fetch(PROFILE_URL, {
+          method: "PATCH",
+          headers: await authHeaders({
+            "Content-Type": "application/json"
+          }),
+          body: JSON.stringify({ displayName })
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              400: "昵称不符合要求",
+              401: "请先登录",
+              500: "更新个人资料失败"
+            },
+            "更新个人资料失败"
+          );
+          alert(message);
+          return;
+        }
+
+        currentProfile = normalizeProfile(await response.json());
+        profileLoaded = true;
+        syncSellerInputs();
+        renderProfileView();
+        await loadProducts();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      }
     }
 
     async function logout() {
@@ -4210,9 +4355,12 @@
       favoriteIds = [];
       favoriteProductsCache = [];
       favoritesLoaded = false;
+      currentProfile = null;
+      profileLoaded = false;
       conversations = [];
       conversationsLoaded = false;
       currentConversationId = "";
+      syncSellerInputs();
       updateFavoriteButtons();
       renderFavoritesView();
       renderMessageView();
@@ -4221,6 +4369,7 @@
 
     async function initializeAuthSession() {
       await getAccessToken();
+      await loadProfile();
       await loadFavorites();
       await loadConversations();
       renderActiveView();
@@ -4322,6 +4471,8 @@
       renderProfileView();
       if (transactionsVisible) loadTransactions();
     });
+
+    editProfileButton.addEventListener("click", editProfileDisplayName);
 
     myPostsList.addEventListener("click", (event) => {
       const statusButton = event.target.closest(".my-post-status-button");
@@ -4477,7 +4628,7 @@
       const priceText = String(formData.get("price") || "").trim();
       const category = String(formData.get("category") || "").trim();
       const location = String(formData.get("location") || "").trim();
-      const seller = String(formData.get("seller") || "").trim();
+      const seller = currentSellerName();
       const price = Number(priceText);
 
       if (!title) {
@@ -4490,7 +4641,7 @@
         return;
       }
 
-      if (!category || !location || !seller) {
+      if (!category || !location) {
         editTip.textContent = "请填写完整商品信息";
         return;
       }
@@ -4554,9 +4705,9 @@
       const priceText = String(formData.get("price") || "").trim();
       const category = String(formData.get("category") || "").trim();
       const location = String(formData.get("location") || "").trim();
-      const seller = String(formData.get("seller") || "").trim();
+      const seller = currentSellerName();
 
-      if (!title || !priceText || !category || !location || !seller) {
+      if (!title || !priceText || !category || !location) {
         publishTip.textContent = "请填写完整商品信息";
         return;
       }
