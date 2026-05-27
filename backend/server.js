@@ -297,6 +297,14 @@ function isProductOwner(product, user) {
   return Boolean(product && user && product.ownerId && product.ownerId === user.id);
 }
 
+function isConversationParticipant(conversation, user) {
+  return Boolean(
+    conversation &&
+    user &&
+    (conversation.buyerId === user.id || conversation.sellerId === user.id)
+  );
+}
+
 function canResetDemoProducts(req) {
   if (process.env.ALLOW_DEMO_RESET === "true") {
     return true;
@@ -420,6 +428,146 @@ async function handleRequest(req, res) {
       sendJson(res, 200, { data: await store.deleteFavorite(user.id, productId) });
     } catch (error) {
       sendJson(res, 500, { error: "取消收藏失败" });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/conversations") {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      sendJson(res, 200, { data: await store.listConversationsForUser(user.id) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取消息会话失败" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/conversations") {
+    let body;
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    const productId = Number(body.productId);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      sendJson(res, 400, { error: "商品不存在" });
+      return;
+    }
+
+    try {
+      const product = await store.getProduct(productId);
+      if (!product) {
+        sendJson(res, 404, { error: "商品不存在" });
+        return;
+      }
+
+      if (isProductOwner(product, user)) {
+        sendJson(res, 400, { error: "不能联系自己发布的商品" });
+        return;
+      }
+
+      if (!product.ownerId) {
+        sendJson(res, 400, { error: "该商品缺少卖家信息，暂时无法联系" });
+        return;
+      }
+
+      const existingConversation = await store.findConversationByBuyerAndProduct(user.id, productId);
+      if (existingConversation) {
+        sendJson(res, 200, { data: existingConversation });
+        return;
+      }
+
+      sendJson(res, 201, { data: await store.createConversation(user, product) });
+    } catch (error) {
+      sendJson(res, 500, { error: "创建消息会话失败" });
+    }
+    return;
+  }
+
+  const conversationMessagesMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/messages$/);
+
+  if (req.method === "GET" && conversationMessagesMatch) {
+    const user = await getUserFromRequest(req);
+    const conversationId = conversationMessagesMatch[1];
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      const conversation = await store.getConversation(conversationId);
+      if (!conversation) {
+        sendJson(res, 404, { error: "会话不存在" });
+        return;
+      }
+
+      if (!isConversationParticipant(conversation, user)) {
+        sendJson(res, 403, { error: "无权查看该会话" });
+        return;
+      }
+
+      sendJson(res, 200, { data: await store.listMessagesForConversation(conversationId) });
+    } catch (error) {
+      sendJson(res, 500, { error: "获取聊天记录失败" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && conversationMessagesMatch) {
+    let body;
+    const user = await getUserFromRequest(req);
+    const conversationId = conversationMessagesMatch[1];
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      body = await readJsonBody(req);
+    } catch (error) {
+      sendJson(res, 400, { error: "请求体必须是有效的 JSON" });
+      return;
+    }
+
+    const content = String(body.content || "").trim();
+    if (!content || content.length > 300) {
+      sendJson(res, 400, { error: "消息内容需为 1-300 个字符" });
+      return;
+    }
+
+    try {
+      const conversation = await store.getConversation(conversationId);
+      if (!conversation) {
+        sendJson(res, 404, { error: "会话不存在" });
+        return;
+      }
+
+      if (!isConversationParticipant(conversation, user)) {
+        sendJson(res, 403, { error: "无权查看该会话" });
+        return;
+      }
+
+      sendJson(res, 201, { data: await store.createMessage(conversation, user, content) });
+    } catch (error) {
+      sendJson(res, 500, { error: "发送消息失败" });
     }
     return;
   }
@@ -713,7 +861,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/favorites", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/favorites", "/api/conversations", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

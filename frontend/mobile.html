@@ -2292,6 +2292,7 @@
       : null;
     const API_URL = `${API_BASE}/api/products`;
     const FAVORITES_URL = `${API_BASE}/api/favorites`;
+    const CONVERSATIONS_URL = `${API_BASE}/api/conversations`;
     const TRANSACTIONS_URL = `${API_BASE}/api/transactions`;
     const RESET_DEMO_URL = `${API_BASE}/api/reset-demo-products`;
     const grid = document.getElementById("productGrid");
@@ -2374,7 +2375,6 @@
     const logoutButton = document.getElementById("logoutButton");
     const authTip = document.getElementById("authTip");
     const FAVORITES_STORAGE_KEY = "qingningji_favorites";
-    const CONVERSATIONS_STORAGE_KEY = "qingningji_conversations";
     const AUTH_STORAGE_KEY = "qingningji_auth_session";
     const MAX_IMAGE_WIDTH = 600;
     const MAX_IMAGE_HEIGHT = 600;
@@ -2397,7 +2397,8 @@
     let currentDetailProduct = null;
     let currentEditId = "";
     let currentConversationId = "";
-    let conversations = readStoredConversations();
+    let conversations = [];
+    let conversationsLoaded = false;
     let transactions = [];
     let favoriteIds = [];
     let favoriteProductsCache = [];
@@ -2944,6 +2945,9 @@
         button.classList.toggle("active", button.dataset.tab === tab);
       });
       renderActiveView();
+      if (tab === "messages" && currentUser() && !conversationsLoaded) {
+        loadConversations();
+      }
     }
 
     function renderCategoryView() {
@@ -3145,6 +3149,23 @@
     function renderMessageView() {
       const activeConversation = conversations.find((conversation) => String(conversation.id) === String(currentConversationId));
 
+      if (!currentUser()) {
+        currentConversationId = "";
+        messageListView.hidden = false;
+        chatDetailView.hidden = true;
+        conversationList.hidden = true;
+        conversationList.innerHTML = "";
+        messageEmptyState.hidden = false;
+        messageEmptyState.innerHTML = `
+          <div>
+            <div class="empty-icon">··</div>
+            <h2>请先登录</h2>
+            <p>登录后可以查看与卖家的沟通记录。</p>
+          </div>
+        `;
+        return;
+      }
+
       if (currentConversationId && activeConversation) {
         messageListView.hidden = true;
         chatDetailView.hidden = false;
@@ -3155,6 +3176,14 @@
       currentConversationId = "";
       messageListView.hidden = false;
       chatDetailView.hidden = true;
+
+      messageEmptyState.innerHTML = `
+        <div>
+          <div class="empty-icon">··</div>
+          <h2>${conversationsLoaded ? "暂无消息" : "正在加载"}</h2>
+          <p>${conversationsLoaded ? "联系卖家后，沟通与预约信息会显示在这里。" : "正在获取你的消息会话。"}</p>
+        </div>
+      `;
 
       const hasConversations = conversations.length > 0;
       messageEmptyState.hidden = hasConversations;
@@ -3190,77 +3219,72 @@
       }).join("");
     }
 
-    function defaultConversationMessages() {
-      const createdAt = new Date().toISOString();
-      return [
-        { role: "buyer", text: "你好，我想了解一下这个闲置物品。", createdAt },
-        { role: "seller", text: "可以的，还在。", createdAt },
-        { role: "buyer", text: "可以在哪里交易？", createdAt },
-        { role: "seller", text: "可以在商品标注的地点附近。", createdAt }
-      ];
-    }
-
     function conversationMessages(conversation) {
-      if (Array.isArray(conversation.messages) && conversation.messages.length) {
-        return conversation.messages;
+      if (!Array.isArray(conversation.messages)) {
+        conversation.messages = [];
       }
-      conversation.messages = defaultConversationMessages();
       return conversation.messages;
     }
 
     function conversationPreview(conversation) {
-      const messages = conversationMessages(conversation);
-      const latestMessage = messages[messages.length - 1];
-      return latestMessage ? latestMessage.text : "你好，我想了解一下这个闲置物品。";
+      return conversation.lastMessage || "会话已创建，可以开始沟通。";
     }
 
     function conversationUpdatedAt(conversation) {
-      const messages = conversationMessages(conversation);
-      const latestMessage = messages[messages.length - 1];
-      return conversation.updatedAt || (latestMessage && latestMessage.createdAt) || new Date().toISOString();
+      return conversation.updatedAt || conversation.lastMessageAt || conversation.createdAt || "";
     }
 
     function normalizeConversation(conversation) {
-      const messages = conversationMessages(conversation).map((message) => ({
-        role: ["seller", "system"].includes(message.role) ? message.role : "buyer",
-        text: String(message.text || ""),
-        createdAt: message.createdAt || conversation.updatedAt || new Date().toISOString()
-      }));
-
       return {
         id: String(conversation.id || ""),
-        seller: String(conversation.seller || "匿名同学"),
-        productName: String(conversation.productName || "未命名商品"),
-        price: String(conversation.price || "面议"),
+        productId: String(conversation.productId || conversation.product_id || ""),
+        buyerId: String(conversation.buyerId || conversation.buyer_id || ""),
+        sellerId: String(conversation.sellerId || conversation.seller_id || ""),
+        seller: String(conversation.sellerName || conversation.seller || conversation.sellerEmail || "匿名同学"),
+        productName: String(conversation.productTitle || conversation.productName || "未命名商品"),
+        price: formatPrice(conversation.productPrice ?? conversation.price ?? "面议"),
         location: String(conversation.location || "校内"),
         productStatus: PRODUCT_STATUSES.includes(conversation.productStatus) ? conversation.productStatus : DEFAULT_PRODUCT_STATUS,
-        messages,
-        updatedAt: conversation.updatedAt || (messages[messages.length - 1] && messages[messages.length - 1].createdAt) || new Date().toISOString(),
-        unread: Boolean(conversation.unread)
+        lastMessage: String(conversation.lastMessage || ""),
+        lastMessageAt: conversation.lastMessageAt || conversation.updatedAt || conversation.createdAt || "",
+        createdAt: conversation.createdAt || "",
+        updatedAt: conversation.lastMessageAt || conversation.updatedAt || conversation.createdAt || "",
+        messages: Array.isArray(conversation.messages) ? conversation.messages : [],
+        messagesLoaded: Boolean(conversation.messagesLoaded),
+        messagesLoading: Boolean(conversation.messagesLoading),
+        unread: false
       };
     }
 
-    function readStoredConversations() {
-      try {
-        const raw = localStorage.getItem(CONVERSATIONS_STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed
-          .map(normalizeConversation)
-          .filter((conversation) => conversation.id)
-          .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime());
-      } catch (error) {
-        return [];
-      }
+    function normalizeMessage(message) {
+      const user = currentUser();
+      const senderRole = String(message.senderRole || message.sender_role || "");
+      const senderId = String(message.senderId || message.sender_id || "");
+      const role = senderRole === "system" || message.messageType === "system"
+        ? "system"
+        : user && senderId === user.id
+          ? "buyer"
+          : "seller";
+
+      return {
+        id: String(message.id || ""),
+        conversationId: String(message.conversationId || message.conversation_id || ""),
+        role,
+        text: String(message.content || message.text || ""),
+        createdAt: message.createdAt || message.created_at || ""
+      };
     }
 
-    function saveConversations() {
-      try {
-        localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversations));
-      } catch (error) {
-        return;
-      }
+    function normalizeConversations(payload) {
+      if (Array.isArray(payload)) return payload.map(normalizeConversation).filter((conversation) => conversation.id);
+      if (Array.isArray(payload.data)) return payload.data.map(normalizeConversation).filter((conversation) => conversation.id);
+      return [];
+    }
+
+    function normalizeMessages(payload) {
+      if (Array.isArray(payload)) return payload.map(normalizeMessage).filter((message) => message.text);
+      if (Array.isArray(payload.data)) return payload.data.map(normalizeMessage).filter((message) => message.text);
+      return [];
     }
 
     function sortConversationsByRecent() {
@@ -3270,7 +3294,7 @@
     }
 
     function conversationProduct(conversation) {
-      return allProducts.find((product) => String(productId(product)) === String(conversation.id));
+      return allProducts.find((product) => String(productId(product)) === String(conversation.productId));
     }
 
     function conversationProductStatus(conversation) {
@@ -3310,24 +3334,114 @@
       chatSellerName.textContent = conversation.seller;
       chatProductName.textContent = conversation.productName;
       updateChatReserveAction(conversation);
-      chatThread.innerHTML = conversationMessages(conversation).map((message) => `
+      if (conversation.messagesLoading) {
+        chatThread.innerHTML = '<div class="chat-row system"><div class="chat-bubble">正在加载聊天记录...</div></div>';
+        return;
+      }
+
+      const messages = conversationMessages(conversation);
+      chatThread.innerHTML = messages.length ? messages.map((message) => `
         <div class="chat-row ${messageRoleClass(message.role)}">
           <div class="chat-bubble">${escapeHtml(message.text)}</div>
         </div>
-      `).join("");
+      `).join("") : '<div class="chat-row system"><div class="chat-bubble">会话已创建，可以开始沟通。</div></div>';
       const messagePage = chatDetailView.closest(".page-view");
       if (messagePage) {
         messagePage.scrollTop = messagePage.scrollHeight;
       }
     }
 
-    function openConversation(conversationId) {
+    async function loadConversations() {
+      if (!currentUser()) {
+        conversations = [];
+        conversationsLoaded = false;
+        currentConversationId = "";
+        renderMessageView();
+        return;
+      }
+
+      try {
+        const response = await fetch(CONVERSATIONS_URL, {
+          headers: await authHeaders()
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录"
+            },
+            "获取消息会话失败"
+          );
+          alert(message);
+          return;
+        }
+
+        const previousMessages = new Map(conversations.map((conversation) => [String(conversation.id), conversation]));
+        conversations = normalizeConversations(await response.json()).map((conversation) => {
+          const previous = previousMessages.get(String(conversation.id));
+          return previous
+            ? {
+                ...conversation,
+                messages: previous.messages,
+                messagesLoaded: previous.messagesLoaded,
+                messagesLoading: previous.messagesLoading
+              }
+            : conversation;
+        });
+        conversationsLoaded = true;
+        sortConversationsByRecent();
+        renderMessageView();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      }
+    }
+
+    async function loadConversationMessages(conversationId) {
+      const conversation = conversations.find((item) => String(item.id) === String(conversationId));
+      if (!conversation || conversation.messagesLoading) return;
+
+      conversation.messagesLoading = true;
+      renderMessageView();
+
+      try {
+        const response = await fetch(`${CONVERSATIONS_URL}/${encodeURIComponent(conversationId)}/messages`, {
+          headers: await authHeaders()
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              403: "无权查看该会话"
+            },
+            "获取聊天记录失败"
+          );
+          alert(message);
+          currentConversationId = "";
+          return;
+        }
+
+        conversation.messages = normalizeMessages(await response.json());
+        conversation.messagesLoaded = true;
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      } finally {
+        conversation.messagesLoading = false;
+        renderMessageView();
+      }
+    }
+
+    async function openConversation(conversationId) {
       const conversation = conversations.find((item) => String(item.id) === String(conversationId));
       if (!conversation) return;
       conversation.unread = false;
       currentConversationId = conversation.id;
-      saveConversations();
       renderMessageView();
+      if (!conversation.messagesLoaded) {
+        await loadConversationMessages(conversation.id);
+      }
       chatInput.focus();
     }
 
@@ -3337,16 +3451,53 @@
       renderMessageView();
     }
 
-    function sendCurrentChatMessage(text) {
+    async function sendCurrentChatMessage(text) {
       const conversation = conversations.find((item) => String(item.id) === String(currentConversationId));
-      if (!conversation) return;
-      const createdAt = new Date().toISOString();
-      conversationMessages(conversation).push({ role: "buyer", text, createdAt });
-      conversation.updatedAt = createdAt;
-      conversation.unread = false;
-      sortConversationsByRecent();
-      saveConversations();
-      renderChatDetail(conversation);
+      if (!conversation) return false;
+      const content = text.trim();
+      if (!content) return false;
+      if (content.length > 300) {
+        alert("消息内容需为 1-300 个字符");
+        return false;
+      }
+
+      try {
+        const response = await fetch(`${CONVERSATIONS_URL}/${encodeURIComponent(conversation.id)}/messages`, {
+          method: "POST",
+          headers: await authHeaders({
+            "Content-Type": "application/json"
+          }),
+          body: JSON.stringify({ content })
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              403: "无权查看该会话"
+            },
+            "发送消息失败"
+          );
+          alert(message);
+          return false;
+        }
+
+        const payload = await response.json();
+        const sentMessage = normalizeMessage(payload.data || {});
+        conversationMessages(conversation).push(sentMessage);
+        conversation.lastMessage = sentMessage.text;
+        conversation.lastMessageAt = sentMessage.createdAt || new Date().toISOString();
+        conversation.updatedAt = conversation.lastMessageAt;
+        conversation.messagesLoaded = true;
+        sortConversationsByRecent();
+        renderMessageView();
+        await loadConversations();
+        return true;
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+        return false;
+      }
     }
 
     function appendConversationMessage(conversation, role, text) {
@@ -3355,7 +3506,6 @@
       conversation.updatedAt = createdAt;
       conversation.unread = false;
       sortConversationsByRecent();
-      saveConversations();
     }
 
     async function reserveCurrentConversationProduct() {
@@ -3368,7 +3518,7 @@
         return;
       }
 
-      const product = allProducts.find((item) => String(productId(item)) === String(conversation.id));
+      const product = allProducts.find((item) => String(productId(item)) === String(conversation.productId));
       const token = await requireAccessToken("请先登录后操作。");
       if (!token || !requireOwnProduct(product)) {
         updateChatReserveAction(conversation);
@@ -3382,7 +3532,7 @@
       reserveProductButton.textContent = "处理中...";
 
       try {
-        const response = await fetch(`${API_URL}/${encodeURIComponent(conversation.id)}/status`, {
+        const response = await fetch(`${API_URL}/${encodeURIComponent(conversation.productId)}/status`, {
           method: "PATCH",
           headers: await authHeaders({
             "Content-Type": "application/json"
@@ -3408,36 +3558,55 @@
       }
     }
 
-    function contactCurrentSeller() {
+    async function contactCurrentSeller() {
       if (!currentDetailProduct || !currentDetailId) return;
       if (productStatus(currentDetailProduct) === "已出") return;
 
-      const product = currentDetailProduct;
-      const now = new Date().toISOString();
-      const existingConversation = conversations.find((item) => String(item.id) === String(currentDetailId));
-      const conversation = existingConversation || {
-        id: currentDetailId,
-        messages: defaultConversationMessages(),
-        updatedAt: now,
-        unread: false
-      };
+      const token = await requireAccessToken("请先登录后联系卖家");
+      if (!token) return;
 
-      conversation.seller = field(product, ["seller", "sellerName", "user", "username", "owner"], "匿名同学");
-      conversation.productName = field(product, ["name", "title", "productName"], "未命名商品");
-      conversation.price = formatPrice(field(product, ["price", "amount"], "面议"));
-      conversation.location = field(product, ["location", "place", "campus", "address"], "校内");
-      conversation.productStatus = productStatus(product);
-      conversation.updatedAt = conversationUpdatedAt(conversation);
-      conversation.unread = false;
+      contactSellerButton.disabled = true;
+      contactSellerButton.textContent = "正在打开...";
 
-      conversations = [
-        conversation,
-        ...conversations.filter((item) => String(item.id) !== String(currentDetailId))
-      ];
-      currentConversationId = currentDetailId;
-      saveConversations();
-      closeDetailModal();
-      showTab("messages");
+      try {
+        const response = await fetch(CONVERSATIONS_URL, {
+          method: "POST",
+          headers: await authHeaders({
+            "Content-Type": "application/json"
+          }),
+          body: JSON.stringify({ productId: currentDetailId })
+        });
+
+        if (!response.ok) {
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              400: "创建会话失败"
+            },
+            "创建会话失败"
+          );
+          alert(message);
+          return;
+        }
+
+        const conversation = normalizeConversation((await response.json()).data || {});
+        conversations = [
+          conversation,
+          ...conversations.filter((item) => String(item.id) !== String(conversation.id))
+        ];
+        conversationsLoaded = true;
+        currentConversationId = conversation.id;
+        closeDetailModal();
+        showTab("messages");
+        await loadConversationMessages(conversation.id);
+        await loadConversations();
+      } catch (error) {
+        alert("网络连接失败，请稍后再试");
+      } finally {
+        contactSellerButton.disabled = productStatus(currentDetailProduct || {}) === "已出";
+        contactSellerButton.textContent = contactSellerButton.disabled ? "已出，无法联系" : "联系卖家";
+      }
     }
 
     function openDetailModal() {
@@ -3830,6 +3999,7 @@
       authPasswordInput.value = "";
       authTip.textContent = "";
       await loadFavorites();
+      await loadConversations();
     }
 
     async function signupWithEmail() {
@@ -3860,6 +4030,7 @@
         authPasswordInput.value = "";
         authTip.textContent = "";
         await loadFavorites();
+        await loadConversations();
         return;
       }
 
@@ -3874,14 +4045,19 @@
       favoriteIds = [];
       favoriteProductsCache = [];
       favoritesLoaded = false;
+      conversations = [];
+      conversationsLoaded = false;
+      currentConversationId = "";
       updateFavoriteButtons();
       renderFavoritesView();
+      renderMessageView();
       authTip.textContent = "";
     }
 
     async function initializeAuthSession() {
       await getAccessToken();
       await loadFavorites();
+      await loadConversations();
       renderActiveView();
     }
 
@@ -3938,13 +4114,15 @@
 
     reserveProductButton.addEventListener("click", reserveCurrentConversationProduct);
 
-    chatForm.addEventListener("submit", (event) => {
+    chatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const text = chatInput.value.trim();
       if (!text) return;
-      sendCurrentChatMessage(text);
-      chatInput.value = "";
-      chatInput.focus();
+      const sent = await sendCurrentChatMessage(text);
+      if (sent) {
+        chatInput.value = "";
+        chatInput.focus();
+      }
     });
 
     navButtons.forEach((button) => {

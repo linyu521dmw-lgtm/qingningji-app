@@ -153,3 +153,12 @@
 - 未登录用户不能收藏商品，前端提示“请先登录后收藏”。
 - “我的收藏”改为读取当前用户的后端收藏列表，不再以 `localStorage` 作为主要数据源。
 - 旧版 `localStorage` 收藏数据仅保留兼容读取，不再写入新的收藏状态。
+
+## 2026-05-27 消息会话迁移节点
+
+- 消息会话已迁移到 Supabase `conversations` / `messages` 表。
+- “联系卖家”会为当前登录买家和商品创建或复用真实会话，同一个买家对同一个商品不会重复创建。
+- 会话列表读取当前登录用户作为买家或卖家参与的 `conversations`，并按 `last_message_at` 倒序展示。
+- 聊天详情读取 `messages` 表，发送消息会写入 `messages` 并同步更新 `conversations.last_message` / `last_message_at`。
+- 会话与 Supabase Auth 登录用户绑定；未登录用户不能创建、读取或发送消息。
+- 非会话参与者读取聊天记录或发送消息会返回 403。

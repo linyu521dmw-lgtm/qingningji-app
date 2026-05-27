@@ -74,6 +74,44 @@ function toCamelTransaction(transaction) {
   };
 }
 
+function toCamelConversation(conversation) {
+  if (!conversation) {
+    return null;
+  }
+
+  return {
+    id: conversation.id,
+    productId: conversation.product_id,
+    buyerId: conversation.buyer_id || "",
+    buyerEmail: conversation.buyer_email || "",
+    sellerId: conversation.seller_id || "",
+    sellerEmail: conversation.seller_email || "",
+    sellerName: conversation.seller_name || "匿名同学",
+    productTitle: conversation.product_title || "未命名商品",
+    productPrice: conversation.product_price,
+    lastMessage: conversation.last_message || "",
+    lastMessageAt: conversation.last_message_at || conversation.created_at,
+    createdAt: conversation.created_at
+  };
+}
+
+function toCamelMessage(message) {
+  if (!message) {
+    return null;
+  }
+
+  return {
+    id: message.id,
+    conversationId: message.conversation_id,
+    senderId: message.sender_id || "",
+    senderEmail: message.sender_email || "",
+    senderRole: message.sender_role || "buyer",
+    content: message.content || "",
+    messageType: message.message_type || "text",
+    createdAt: message.created_at
+  };
+}
+
 function toSnakeProduct(product) {
   const currentTime = nowIso();
 
@@ -297,6 +335,118 @@ async function deleteFavorite(userId, productId) {
   };
 }
 
+async function listConversationsForUser(userId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .order("last_message_at", { ascending: false, nullsFirst: false });
+  throwIfError(error);
+  return (data || []).map(toCamelConversation);
+}
+
+async function getConversation(id) {
+  ensureSupabase();
+  const { data, error } = await supabase.from("conversations").select("*").eq("id", id).maybeSingle();
+  throwIfError(error);
+  return toCamelConversation(data);
+}
+
+async function findConversationByBuyerAndProduct(buyerId, productId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("buyer_id", buyerId)
+    .eq("product_id", productId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  throwIfError(error);
+  return toCamelConversation((data || [])[0]);
+}
+
+async function createConversation(user, product) {
+  ensureSupabase();
+  const currentTime = nowIso();
+  const systemContent = "会话已创建，可以开始沟通。";
+  const { data, error } = await supabase
+    .from("conversations")
+    .insert({
+      product_id: product.id,
+      buyer_id: user.id,
+      buyer_email: user.email || "",
+      seller_id: product.ownerId,
+      seller_email: product.ownerEmail || "",
+      seller_name: product.seller || "匿名同学",
+      product_title: product.title || "未命名商品",
+      product_price: product.price,
+      last_message: systemContent,
+      last_message_at: currentTime,
+      created_at: currentTime
+    })
+    .select("*")
+    .single();
+  throwIfError(error);
+
+  const conversation = toCamelConversation(data);
+  const { error: messageError } = await supabase.from("messages").insert({
+    conversation_id: conversation.id,
+    sender_id: null,
+    sender_email: "",
+    sender_role: "system",
+    content: systemContent,
+    message_type: "system",
+    created_at: currentTime
+  });
+  throwIfError(messageError);
+
+  return conversation;
+}
+
+async function listMessagesForConversation(conversationId) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+  throwIfError(error);
+  return (data || []).map(toCamelMessage);
+}
+
+async function createMessage(conversation, user, content) {
+  ensureSupabase();
+  const currentTime = nowIso();
+  const senderRole = conversation.sellerId === user.id ? "seller" : "buyer";
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      sender_email: user.email || "",
+      sender_role: senderRole,
+      content,
+      message_type: "text",
+      created_at: currentTime
+    })
+    .select("*")
+    .single();
+  throwIfError(error);
+
+  const message = toCamelMessage(data);
+  const { error: updateError } = await supabase
+    .from("conversations")
+    .update({
+      last_message: content,
+      last_message_at: message.createdAt || currentTime
+    })
+    .eq("id", conversation.id);
+  throwIfError(updateError);
+
+  return message;
+}
+
 async function resetProducts(demoProducts) {
   ensureSupabase();
 
@@ -328,5 +478,11 @@ module.exports = {
   listFavoriteProducts,
   createFavorite,
   deleteFavorite,
+  listConversationsForUser,
+  getConversation,
+  findConversationByBuyerAndProduct,
+  createConversation,
+  listMessagesForConversation,
+  createMessage,
   resetProducts
 };
