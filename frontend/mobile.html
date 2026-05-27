@@ -670,6 +670,11 @@
       z-index: 9100;
     }
 
+    .chat-keyboard-open #messageView .page-view {
+      padding-bottom: env(safe-area-inset-bottom);
+      scroll-padding-bottom: env(safe-area-inset-bottom);
+    }
+
     .chat-input {
       flex: 1;
       min-width: 0;
@@ -2427,28 +2432,6 @@
     let isChatInputFocused = false;
     let currentAuthSession = readAuthSession();
 
-    function resetMessagingState() {
-      currentConversationId = "";
-      conversations = [];
-      conversationsLoaded = false;
-      if (chatInput) chatInput.value = "";
-      if (conversationList) conversationList.innerHTML = "";
-      if (chatThread) chatThread.innerHTML = "";
-      if (messageListView) messageListView.hidden = false;
-      if (chatDetailView) chatDetailView.hidden = true;
-    }
-
-    function messageAuthHeaders(token, extraHeaders = {}) {
-      return { ...extraHeaders, Authorization: `Bearer ${token}` };
-    }
-
-    async function getConversationRequestErrorMessage(response, fallbackMessage) {
-      if (response.status === 401) return "请先登录";
-      if (response.status === 403) return "无权查看该会话";
-      const message = await getApiErrorMessage(response);
-      return message || fallbackMessage;
-    }
-
     function scrollChatToBottom() {
       window.requestAnimationFrame(() => {
         const messagePage = chatDetailView.closest(".page-view");
@@ -2514,7 +2497,6 @@
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       } else {
         localStorage.removeItem(AUTH_STORAGE_KEY);
-        resetMessagingState();
       }
       renderActiveView();
     }
@@ -2554,7 +2536,8 @@
         return storedSession.accessToken;
       }
 
-      writeAuthSession(null);
+      currentAuthSession = null;
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       return null;
     }
 
@@ -3412,20 +3395,27 @@
     }
 
     async function loadConversations() {
-      const token = await getAccessToken();
-      if (!token) {
-        resetMessagingState();
+      if (!currentUser()) {
+        conversations = [];
+        conversationsLoaded = false;
+        currentConversationId = "";
         renderMessageView();
         return;
       }
 
       try {
         const response = await fetch(CONVERSATIONS_URL, {
-          headers: messageAuthHeaders(token)
+          headers: await authHeaders()
         });
 
         if (!response.ok) {
-          const message = await getConversationRequestErrorMessage(response, "获取消息会话失败");
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录"
+            },
+            "获取消息会话失败"
+          );
           alert(message);
           return;
         }
@@ -3451,14 +3441,6 @@
     }
 
     async function loadConversationMessages(conversationId) {
-      const token = await getAccessToken();
-      if (!token) {
-        alert("请先登录");
-        resetMessagingState();
-        renderMessageView();
-        return;
-      }
-
       const conversation = conversations.find((item) => String(item.id) === String(conversationId));
       if (!conversation || conversation.messagesLoading) return;
 
@@ -3467,11 +3449,18 @@
 
       try {
         const response = await fetch(`${CONVERSATIONS_URL}/${encodeURIComponent(conversationId)}/messages`, {
-          headers: messageAuthHeaders(token)
+          headers: await authHeaders()
         });
 
         if (!response.ok) {
-          const message = await getConversationRequestErrorMessage(response, "获取聊天记录失败");
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              403: "无权查看该会话"
+            },
+            "获取聊天记录失败"
+          );
           alert(message);
           currentConversationId = "";
           return;
@@ -3488,14 +3477,6 @@
     }
 
     async function openConversation(conversationId) {
-      const token = await getAccessToken();
-      if (!token) {
-        alert("请先登录");
-        resetMessagingState();
-        renderMessageView();
-        return;
-      }
-
       const conversation = conversations.find((item) => String(item.id) === String(conversationId));
       if (!conversation) return;
       conversation.unread = false;
@@ -3515,12 +3496,6 @@
     }
 
     async function sendCurrentChatMessage(text) {
-      const token = await getAccessToken();
-      if (!token) {
-        alert("请先登录后发送消息");
-        return false;
-      }
-
       const conversation = conversations.find((item) => String(item.id) === String(currentConversationId));
       if (!conversation) return false;
       const content = text.trim();
@@ -3533,14 +3508,21 @@
       try {
         const response = await fetch(`${CONVERSATIONS_URL}/${encodeURIComponent(conversation.id)}/messages`, {
           method: "POST",
-          headers: messageAuthHeaders(token, {
+          headers: await authHeaders({
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({ content })
         });
 
         if (!response.ok) {
-          const message = await getConversationRequestErrorMessage(response, "发送消息失败");
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              403: "无权查看该会话"
+            },
+            "发送消息失败"
+          );
           alert(message);
           return false;
         }
@@ -3633,14 +3615,21 @@
       try {
         const response = await fetch(CONVERSATIONS_URL, {
           method: "POST",
-          headers: messageAuthHeaders(token, {
+          headers: await authHeaders({
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({ productId: currentDetailId })
         });
 
         if (!response.ok) {
-          const message = await getConversationRequestErrorMessage(response, "创建会话失败");
+          const message = await getRequestErrorMessage(
+            response,
+            {
+              401: "请先登录",
+              400: "创建会话失败"
+            },
+            "创建会话失败"
+          );
           alert(message);
           return;
         }
@@ -4100,7 +4089,9 @@
       favoriteIds = [];
       favoriteProductsCache = [];
       favoritesLoaded = false;
-      resetMessagingState();
+      conversations = [];
+      conversationsLoaded = false;
+      currentConversationId = "";
       updateFavoriteButtons();
       renderFavoritesView();
       renderMessageView();
