@@ -18,6 +18,14 @@
       --danger: #e05a42;
       --shadow: 0 18px 42px rgba(25, 98, 58, 0.14);
       --bottom-nav-space: 170px;
+      --app-height: 100vh;
+      --chat-compose-bottom: 82px;
+    }
+
+    @supports (height: 100dvh) {
+      :root {
+        --app-height: 100dvh;
+      }
     }
 
     * {
@@ -26,7 +34,7 @@
 
     body {
       margin: 0;
-      min-height: 100vh;
+      min-height: var(--app-height);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
       background:
@@ -62,7 +70,7 @@
 
     .phone-shell {
       width: min(390px, 100%);
-      min-height: 100vh;
+      min-height: var(--app-height);
       margin: 0 auto;
       padding: 12px;
     }
@@ -71,8 +79,8 @@
       position: relative;
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 24px);
-      min-height: calc(100vh - 24px);
+      height: calc(var(--app-height) - 24px);
+      min-height: calc(var(--app-height) - 24px);
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.72);
       border-radius: 34px;
@@ -590,7 +598,7 @@
       flex: 1;
       flex-direction: column;
       gap: 12px;
-      min-height: 300px;
+      min-height: 0;
       padding: 16px 0;
     }
 
@@ -647,7 +655,7 @@
 
     .chat-compose {
       position: sticky;
-      bottom: calc(82px + env(safe-area-inset-bottom));
+      bottom: calc(var(--chat-compose-bottom) + env(safe-area-inset-bottom));
       display: flex;
       gap: 9px;
       margin: auto -16px 0;
@@ -655,6 +663,11 @@
       border-top: 1px solid var(--line);
       background: rgba(247, 250, 248, 0.96);
       backdrop-filter: blur(12px);
+    }
+
+    .chat-keyboard-open .chat-compose {
+      bottom: env(safe-area-inset-bottom);
+      z-index: 9100;
     }
 
     .chat-input {
@@ -1957,8 +1970,8 @@
       }
 
       .phone-screen {
-        height: 100vh;
-        min-height: 100vh;
+        height: var(--app-height);
+        min-height: var(--app-height);
         border: 0;
         border-radius: 0;
       }
@@ -2411,7 +2424,57 @@
     let selectedImageData = "";
     let imageUploadToken = 0;
     let isImageProcessing = false;
+    let isChatInputFocused = false;
     let currentAuthSession = readAuthSession();
+
+    function resetMessagingState() {
+      currentConversationId = "";
+      conversations = [];
+      conversationsLoaded = false;
+      if (chatInput) chatInput.value = "";
+      if (conversationList) conversationList.innerHTML = "";
+      if (chatThread) chatThread.innerHTML = "";
+      if (messageListView) messageListView.hidden = false;
+      if (chatDetailView) chatDetailView.hidden = true;
+    }
+
+    function messageAuthHeaders(token, extraHeaders = {}) {
+      return { ...extraHeaders, Authorization: `Bearer ${token}` };
+    }
+
+    async function getConversationRequestErrorMessage(response, fallbackMessage) {
+      if (response.status === 401) return "请先登录";
+      if (response.status === 403) return "无权查看该会话";
+      const message = await getApiErrorMessage(response);
+      return message || fallbackMessage;
+    }
+
+    function scrollChatToBottom() {
+      window.requestAnimationFrame(() => {
+        const messagePage = chatDetailView.closest(".page-view");
+        chatThread.scrollTop = chatThread.scrollHeight;
+        if (messagePage) messagePage.scrollTop = messagePage.scrollHeight;
+      });
+    }
+
+    function syncViewportHeight() {
+      const viewport = window.visualViewport;
+      const height = viewport ? viewport.height : window.innerHeight;
+      if (height) {
+        document.documentElement.style.setProperty("--app-height", `${height}px`);
+      }
+
+      const keyboardLikelyOpen = Boolean(
+        isChatInputFocused
+        && (!viewport || viewport.height < window.innerHeight - 80)
+      );
+      document.body.classList.toggle("chat-keyboard-open", keyboardLikelyOpen);
+      document.documentElement.style.setProperty("--chat-compose-bottom", keyboardLikelyOpen ? "0px" : "82px");
+
+      if (keyboardLikelyOpen && currentConversationId) {
+        scrollChatToBottom();
+      }
+    }
 
     function normalizeProducts(payload) {
       if (Array.isArray(payload)) return payload;
@@ -2451,6 +2514,7 @@
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       } else {
         localStorage.removeItem(AUTH_STORAGE_KEY);
+        resetMessagingState();
       }
       renderActiveView();
     }
@@ -2490,8 +2554,7 @@
         return storedSession.accessToken;
       }
 
-      currentAuthSession = null;
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      writeAuthSession(null);
       return null;
     }
 
@@ -3345,34 +3408,24 @@
           <div class="chat-bubble">${escapeHtml(message.text)}</div>
         </div>
       `).join("") : '<div class="chat-row system"><div class="chat-bubble">会话已创建，可以开始沟通。</div></div>';
-      const messagePage = chatDetailView.closest(".page-view");
-      if (messagePage) {
-        messagePage.scrollTop = messagePage.scrollHeight;
-      }
+      scrollChatToBottom();
     }
 
     async function loadConversations() {
-      if (!currentUser()) {
-        conversations = [];
-        conversationsLoaded = false;
-        currentConversationId = "";
+      const token = await getAccessToken();
+      if (!token) {
+        resetMessagingState();
         renderMessageView();
         return;
       }
 
       try {
         const response = await fetch(CONVERSATIONS_URL, {
-          headers: await authHeaders()
+          headers: messageAuthHeaders(token)
         });
 
         if (!response.ok) {
-          const message = await getRequestErrorMessage(
-            response,
-            {
-              401: "请先登录"
-            },
-            "获取消息会话失败"
-          );
+          const message = await getConversationRequestErrorMessage(response, "获取消息会话失败");
           alert(message);
           return;
         }
@@ -3398,6 +3451,14 @@
     }
 
     async function loadConversationMessages(conversationId) {
+      const token = await getAccessToken();
+      if (!token) {
+        alert("请先登录");
+        resetMessagingState();
+        renderMessageView();
+        return;
+      }
+
       const conversation = conversations.find((item) => String(item.id) === String(conversationId));
       if (!conversation || conversation.messagesLoading) return;
 
@@ -3406,18 +3467,11 @@
 
       try {
         const response = await fetch(`${CONVERSATIONS_URL}/${encodeURIComponent(conversationId)}/messages`, {
-          headers: await authHeaders()
+          headers: messageAuthHeaders(token)
         });
 
         if (!response.ok) {
-          const message = await getRequestErrorMessage(
-            response,
-            {
-              401: "请先登录",
-              403: "无权查看该会话"
-            },
-            "获取聊天记录失败"
-          );
+          const message = await getConversationRequestErrorMessage(response, "获取聊天记录失败");
           alert(message);
           currentConversationId = "";
           return;
@@ -3434,6 +3488,14 @@
     }
 
     async function openConversation(conversationId) {
+      const token = await getAccessToken();
+      if (!token) {
+        alert("请先登录");
+        resetMessagingState();
+        renderMessageView();
+        return;
+      }
+
       const conversation = conversations.find((item) => String(item.id) === String(conversationId));
       if (!conversation) return;
       conversation.unread = false;
@@ -3443,6 +3505,7 @@
         await loadConversationMessages(conversation.id);
       }
       chatInput.focus();
+      scrollChatToBottom();
     }
 
     function closeConversationDetail() {
@@ -3452,6 +3515,12 @@
     }
 
     async function sendCurrentChatMessage(text) {
+      const token = await getAccessToken();
+      if (!token) {
+        alert("请先登录后发送消息");
+        return false;
+      }
+
       const conversation = conversations.find((item) => String(item.id) === String(currentConversationId));
       if (!conversation) return false;
       const content = text.trim();
@@ -3464,21 +3533,14 @@
       try {
         const response = await fetch(`${CONVERSATIONS_URL}/${encodeURIComponent(conversation.id)}/messages`, {
           method: "POST",
-          headers: await authHeaders({
+          headers: messageAuthHeaders(token, {
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({ content })
         });
 
         if (!response.ok) {
-          const message = await getRequestErrorMessage(
-            response,
-            {
-              401: "请先登录",
-              403: "无权查看该会话"
-            },
-            "发送消息失败"
-          );
+          const message = await getConversationRequestErrorMessage(response, "发送消息失败");
           alert(message);
           return false;
         }
@@ -3571,21 +3633,14 @@
       try {
         const response = await fetch(CONVERSATIONS_URL, {
           method: "POST",
-          headers: await authHeaders({
+          headers: messageAuthHeaders(token, {
             "Content-Type": "application/json"
           }),
           body: JSON.stringify({ productId: currentDetailId })
         });
 
         if (!response.ok) {
-          const message = await getRequestErrorMessage(
-            response,
-            {
-              401: "请先登录",
-              400: "创建会话失败"
-            },
-            "创建会话失败"
-          );
+          const message = await getConversationRequestErrorMessage(response, "创建会话失败");
           alert(message);
           return;
         }
@@ -4045,9 +4100,7 @@
       favoriteIds = [];
       favoriteProductsCache = [];
       favoritesLoaded = false;
-      conversations = [];
-      conversationsLoaded = false;
-      currentConversationId = "";
+      resetMessagingState();
       updateFavoriteButtons();
       renderFavoritesView();
       renderMessageView();
@@ -4122,8 +4175,28 @@
       if (sent) {
         chatInput.value = "";
         chatInput.focus();
+        scrollChatToBottom();
       }
     });
+
+    chatInput.addEventListener("focus", () => {
+      isChatInputFocused = true;
+      syncViewportHeight();
+      scrollChatToBottom();
+      window.setTimeout(scrollChatToBottom, 180);
+      window.setTimeout(scrollChatToBottom, 360);
+    });
+
+    chatInput.addEventListener("blur", () => {
+      isChatInputFocused = false;
+      syncViewportHeight();
+    });
+
+    window.addEventListener("resize", syncViewportHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", syncViewportHeight);
+      window.visualViewport.addEventListener("scroll", syncViewportHeight);
+    }
 
     navButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -4437,6 +4510,7 @@
       }
     });
 
+    syncViewportHeight();
     initializeAuthSession().finally(loadProducts);
   </script>
 </body>
