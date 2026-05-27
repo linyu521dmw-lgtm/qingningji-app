@@ -823,6 +823,11 @@
       margin-bottom: 18px;
     }
 
+    .profile-info {
+      min-width: 0;
+      flex: 1;
+    }
+
     .profile-avatar {
       display: grid;
       width: 58px;
@@ -847,6 +852,14 @@
       margin: 6px 0 0;
       color: var(--muted);
       font-size: 13px;
+      word-break: break-word;
+    }
+
+    .profile-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
     .auth-panel {
@@ -887,12 +900,12 @@
       font: inherit;
       font-weight: 800;
       color: #fff;
-      background: var(--green);
+      background: var(--lime);
       cursor: pointer;
     }
 
     .auth-button.secondary {
-      color: var(--green);
+      color: var(--lime-dark);
       background: #eef8ef;
     }
 
@@ -937,6 +950,12 @@
       font-size: 15px;
       line-height: 1.2;
       font-weight: 900;
+    }
+
+    .dashboard-card[hidden],
+    .profile-head[hidden],
+    .profile-actions[hidden] {
+      display: none !important;
     }
 
     .weekly-flow-badge {
@@ -2164,12 +2183,16 @@
         <div class="page-view">
           <h1 class="page-title">我的</h1>
           <section class="profile-card">
-            <div class="profile-head">
+            <div class="profile-head" id="profileHead" hidden>
               <div class="profile-avatar">柠</div>
-              <div>
+              <div class="profile-info">
                 <h2 class="profile-name" id="profileName">未登录</h2>
                 <p class="profile-email" id="profileEmail">登录后可以发布和管理自己的商品</p>
               </div>
+            </div>
+            <div class="profile-actions" id="profileActions" hidden>
+              <button class="auth-button secondary" id="editProfileButton" type="button">修改昵称</button>
+              <button class="auth-button secondary" id="logoutButton" type="button">退出登录</button>
             </div>
             <section class="auth-panel" id="authPanel" aria-label="账号登录">
               <form class="auth-form" id="authForm" novalidate>
@@ -2181,41 +2204,35 @@
                 </div>
                 <p class="auth-tip" id="authTip" role="alert"></p>
               </form>
-              <button class="auth-button secondary" id="logoutButton" type="button" hidden>退出登录</button>
             </section>
-            <div class="publish-count">
-              <span>我的发布</span>
-              <span id="publishedCount">0 件</span>
-            </div>
-            <section class="weekly-flow-card" aria-label="本周闲置流转">
+            <section class="weekly-flow-card dashboard-card" id="profileDashboard" aria-label="个人数据概览" hidden>
               <div class="weekly-flow-head">
-                <h3 class="weekly-flow-title">本周闲置流转</h3>
-                <span class="weekly-flow-badge">青柠数据</span>
+                <h3 class="weekly-flow-title">数据概览</h3>
+                <span class="weekly-flow-badge">个人中心</span>
               </div>
               <div class="weekly-flow-grid">
                 <div class="weekly-flow-item">
                   <span class="weekly-flow-value" id="weeklyPublishedCount">0</span>
-                  <span class="weekly-flow-label">已发布</span>
+                  <span class="weekly-flow-label">我的发布</span>
                 </div>
                 <div class="weekly-flow-item">
                   <span class="weekly-flow-value" id="weeklyFavoriteCount">0</span>
-                  <span class="weekly-flow-label">已收藏</span>
-                </div>
-                <div class="weekly-flow-item">
-                  <span class="weekly-flow-value" id="weeklyAvailableCount">0</span>
-                  <span class="weekly-flow-label">在售</span>
+                  <span class="weekly-flow-label">我的收藏</span>
                 </div>
                 <div class="weekly-flow-item">
                   <span class="weekly-flow-value" id="weeklySoldCount">0</span>
-                  <span class="weekly-flow-label">已出</span>
+                  <span class="weekly-flow-label">交易记录</span>
+                </div>
+                <div class="weekly-flow-item">
+                  <span class="weekly-flow-value" id="weeklyAvailableCount">0</span>
+                  <span class="weekly-flow-label">在售商品</span>
                 </div>
               </div>
             </section>
-            <div class="menu-list">
+            <div class="menu-list" id="profileMenu" hidden>
               <button class="menu-item" id="toggleMyPostsButton" type="button"><span>我的发布</span><span id="myPostsToggleMark">展开</span></button>
               <button class="menu-item" id="toggleFavoritesButton" type="button"><span>我的收藏</span><span id="favoritesToggleMark">展开</span></button>
               <button class="menu-item" id="toggleTransactionsButton" type="button"><span>交易记录</span><span id="transactionsToggleMark">展开</span></button>
-              <button class="menu-item" id="editProfileButton" type="button" hidden><span>修改昵称</span><span>›</span></button>
               <div class="menu-item"><span>设置</span><span>›</span></div>
             </div>
             <section class="my-posts-panel" id="myPostsPanel" hidden>
@@ -2448,7 +2465,10 @@
     const appViews = document.querySelectorAll(".app-view");
     const navButtons = document.querySelectorAll(".nav-button[data-tab]");
     const categoryList = document.getElementById("categoryList");
-    const publishedCount = document.getElementById("publishedCount");
+    const profileHead = document.getElementById("profileHead");
+    const profileActions = document.getElementById("profileActions");
+    const profileDashboard = document.getElementById("profileDashboard");
+    const profileMenu = document.getElementById("profileMenu");
     const weeklyPublishedCount = document.getElementById("weeklyPublishedCount");
     const weeklyFavoriteCount = document.getElementById("weeklyFavoriteCount");
     const weeklyAvailableCount = document.getElementById("weeklyAvailableCount");
@@ -3311,13 +3331,15 @@
 
     function updateWeeklyFlowStats() {
       const validIds = new Set(allProducts.map((product) => String(productId(product))).filter(Boolean));
-      const favoriteCount = favoriteIds.filter((id) => validIds.has(id)).length;
+      const favoriteCount = favoritesLoaded
+        ? favoriteProducts().length
+        : favoriteIds.filter((id) => validIds.has(id)).length;
       const ownProducts = allProducts.filter(isOwnProduct);
 
       weeklyPublishedCount.textContent = ownProducts.length;
       weeklyFavoriteCount.textContent = favoriteCount;
+      weeklySoldCount.textContent = transactions.length;
       weeklyAvailableCount.textContent = ownProducts.filter((product) => productStatus(product) === "在售").length;
-      weeklySoldCount.textContent = ownProducts.filter((product) => productStatus(product) === "已出").length;
     }
 
     function renderProfileView() {
@@ -3328,9 +3350,10 @@
       profileName.textContent = displayName;
       profileEmail.textContent = user ? user.email : "登录后可以发布和管理自己的商品";
       authForm.hidden = Boolean(user);
-      logoutButton.hidden = !user;
-      editProfileButton.hidden = !user;
-      publishedCount.textContent = `${ownProducts.length} 件`;
+      profileHead.hidden = !user;
+      profileActions.hidden = !user;
+      profileDashboard.hidden = !user;
+      profileMenu.hidden = !user;
       syncSellerInputs();
       updateWeeklyFlowStats();
       myPostsPanel.hidden = !myPostsVisible;
@@ -3340,6 +3363,9 @@
       renderTransactionsView();
 
       if (!user) {
+        myPostsPanel.hidden = true;
+        favoritesPanel.hidden = true;
+        transactionsPanel.hidden = true;
         myPostsList.innerHTML = '<div class="my-post-empty">请先登录后查看自己的发布。</div>';
         return;
       }
@@ -3800,7 +3826,7 @@
         conversation.productStatus = "已预定";
         appendConversationMessage(conversation, "system", "你已发起预定，商品状态已更新为已预定。");
         await loadProducts();
-        if (transactionsVisible) await loadTransactions();
+        await loadTransactions(true);
         renderChatDetail(conversation);
       } catch (error) {
         alert("网络连接失败，请检查网络或稍后再试");
@@ -4122,18 +4148,18 @@
         }
 
         await loadProducts();
-        if (transactionsVisible) await loadTransactions();
+        await loadTransactions(true);
       } catch (error) {
         alert("网络连接失败，请检查网络或稍后再试");
         if (button) button.disabled = false;
       }
     }
 
-    async function loadTransactions() {
-      if (!transactionsVisible) return;
+    async function loadTransactions(force = false) {
+      if (!transactionsVisible && !force) return;
 
       transactionsLoaded = false;
-      renderTransactionsView();
+      if (transactionsVisible) renderTransactionsView();
 
       try {
         const response = await fetch(TRANSACTIONS_URL);
@@ -4144,10 +4170,13 @@
         const payload = await response.json();
         transactions = normalizeTransactions(payload);
         transactionsLoaded = true;
-        renderTransactionsView();
+        updateWeeklyFlowStats();
+        if (transactionsVisible) renderTransactionsView();
       } catch (error) {
         transactions = [];
         transactionsLoaded = true;
+        updateWeeklyFlowStats();
+        if (!transactionsVisible) return;
         transactionsCount.textContent = "0 条记录";
         transactionsList.innerHTML = `
           <div class="transaction-empty">
@@ -4253,6 +4282,7 @@
       authTip.textContent = "";
       await loadProfile();
       await loadFavorites();
+      await loadTransactions(true);
       await loadConversations();
     }
 
@@ -4285,6 +4315,7 @@
         authTip.textContent = "";
         await loadProfile();
         await loadFavorites();
+        await loadTransactions(true);
         await loadConversations();
         return;
       }
@@ -4359,6 +4390,8 @@
       profileLoaded = false;
       conversations = [];
       conversationsLoaded = false;
+      transactions = [];
+      transactionsLoaded = false;
       currentConversationId = "";
       syncSellerInputs();
       updateFavoriteButtons();
@@ -4371,6 +4404,7 @@
       await getAccessToken();
       await loadProfile();
       await loadFavorites();
+      await loadTransactions(true);
       await loadConversations();
       renderActiveView();
     }
