@@ -206,3 +206,10 @@
 - 订单加载时会通过 `GET /api/orders/:id/payments` 补齐最新支付记录，避免订单列表缺少流水号时展示不完整。
 - 当前仍仅使用 `mock` provider，不接真实支付宝、微信支付，不处理真实资金，也不做青柠币。
 - 后续真实支付宝/微信接入需要补齐支付创建、`pay_url`、`notify_url`、回调验签和退款流程。
+
+## 2026-05-29 支付 provider 适配器结构 v0
+
+- 后端新增 `backend/payment-providers.js`，用于承载支付 provider 适配器结构。
+- mock payment 写入 `payment_records` 的逻辑已从订单 store 中抽离，`pay-simulate` 通过 `createPaymentByProvider("mock", ...)` 调用 mock provider。
+- `alipay` / `wechat` 当前仅保留 placeholder，不接真实支付宝或微信支付；通过统一 provider 入口调用时会返回“真实支付暂未接入”。
+- 后续接入支付宝/微信沙箱时，需要实现 `createAlipayPayment` / `createWechatPayment`、支付创建、`pay_url`、`notify_url`、回调验签、退款和商户配置等能力。

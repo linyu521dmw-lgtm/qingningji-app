@@ -1,5 +1,6 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { createPaymentByProvider } = require("./payment-providers");
 
 const productStatuses = ["在售", "已预定", "已出"];
 const defaultProductStatus = "在售";
@@ -268,11 +269,6 @@ function toSnakeOrder(order) {
     completed_at: order.completedAt || null,
     cancelled_at: order.cancelledAt || null
   };
-}
-
-function makeMockOutTradeNo(orderId) {
-  const compactTime = new Date().toISOString().replace(/[-:.TZ]/g, "");
-  return `QN${compactTime}${String(orderId).replace(/[^A-Za-z0-9]/g, "")}`;
 }
 
 function attachLatestPayments(orders, paymentRecords) {
@@ -569,84 +565,18 @@ async function updateOrder(id, updates) {
   return toCamelOrder(data);
 }
 
-async function createOrUpdateMockPaymentRecord(order, user, paidAt = nowIso()) {
-  ensureSupabase();
-  const { data: existingRecords, error: selectError } = await supabase
-    .from("payment_records")
-    .select("*")
-    .eq("order_id", order.id)
-    .eq("provider", "mock")
-    .order("created_at", { ascending: false })
-    .limit(1);
-  throwIfError(selectError);
-
-  const existingRecord = (existingRecords || [])[0];
-  if (existingRecord && existingRecord.payment_status === "已支付") {
-    return toCamelPaymentRecord(existingRecord);
-  }
-
-  const rawResponse = {
-    provider: "mock",
-    action: "pay-simulate",
-    result: "success",
-    message: "mock payment success",
-    orderId: order.id,
-    productId: order.productId,
-    outTradeNo: existingRecord && existingRecord.out_trade_no ? existingRecord.out_trade_no : makeMockOutTradeNo(order.id),
-    paidAt
-  };
-  const outTradeNo = rawResponse.outTradeNo;
-  const paymentPayload = {
-    order_id: order.id,
-    product_id: order.productId,
-    payer_id: user.id,
-    payer_email: user.email || "",
-    provider: "mock",
-    out_trade_no: outTradeNo,
-    provider_trade_no: null,
-    amount: order.price ?? 0,
-    payment_status: "已支付",
-    pay_url: null,
-    notify_payload: null,
-    raw_response: rawResponse,
-    paid_at: paidAt,
-    failed_at: null
-  };
-
-  if (existingRecord) {
-    const { data, error } = await supabase
-      .from("payment_records")
-      .update(paymentPayload)
-      .eq("id", existingRecord.id)
-      .select("*")
-      .single();
-    throwIfError(error);
-    return toCamelPaymentRecord(data);
-  }
-
-  const { data, error } = await supabase
-    .from("payment_records")
-    .insert({
-      ...paymentPayload,
-      created_at: paidAt
-    })
-    .select("*")
-    .single();
-  throwIfError(error);
-  return toCamelPaymentRecord(data);
-}
-
 async function simulatePayOrder(order, user) {
   ensureSupabase();
   const currentTime = nowIso();
-  const paymentRecord = await createOrUpdateMockPaymentRecord(
+  const paymentRecord = await createPaymentByProvider("mock", {
+    supabase,
     order,
-    {
+    user: {
       id: user && user.id ? user.id : order.buyerId,
       email: user && user.email ? user.email : order.buyerEmail || ""
     },
-    currentTime
-  );
+    paidAt: currentTime
+  });
   const updatedOrder = await updateOrder(order.id, {
     paymentStatus: "已支付",
     orderStatus: "待自取",
