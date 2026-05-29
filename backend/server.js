@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const sqliteStore = require("./sqlite-store");
 const supabaseStore = require("./supabase-store");
+const { checkAlipaySandboxConfig, createPaymentByProvider } = require("./payment-providers");
 
 const PORT = process.env.PORT || 3001;
 const HOST = "0.0.0.0";
@@ -512,6 +513,7 @@ async function handleRequest(req, res) {
 
   const favoriteMatch = pathname.match(/^\/api\/favorites\/(\d+)$/);
   const orderPaymentsMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payments$/);
+  const orderAlipaySandboxPaymentMatch = pathname.match(/^\/api\/orders\/([^/]+)\/pay\/alipay-sandbox$/);
   const orderActionMatch = pathname.match(/^\/api\/orders\/([^/]+)\/(pay-simulate|complete|cancel)$/);
 
   if (req.method === "DELETE" && favoriteMatch) {
@@ -560,6 +562,26 @@ async function handleRequest(req, res) {
     } catch (error) {
       sendJson(res, 500, { error: "获取支付记录失败" });
     }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/payments/alipay-sandbox/status") {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    const configStatus = checkAlipaySandboxConfig();
+    sendJson(res, 200, {
+      data: {
+        provider: "alipay",
+        mode: "sandbox",
+        ready: configStatus.ready,
+        missing: configStatus.missing
+      }
+    });
     return;
   }
 
@@ -794,6 +816,69 @@ async function handleRequest(req, res) {
       sendJson(res, 200, { data: await store.listPaymentsForOrder(orderId) });
     } catch (error) {
       sendJson(res, 500, { error: "获取订单支付记录失败" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && orderAlipaySandboxPaymentMatch) {
+    const user = await getUserFromRequest(req);
+    const orderId = orderAlipaySandboxPaymentMatch[1];
+
+    if (!user) {
+      sendJson(res, 401, { error: "请先登录" });
+      return;
+    }
+
+    try {
+      const order = await store.getOrder(orderId);
+      if (!order) {
+        sendJson(res, 404, { error: "订单不存在" });
+        return;
+      }
+
+      if (order.buyerId !== user.id) {
+        sendJson(res, 403, { error: "只有买家可以支付订单" });
+        return;
+      }
+
+      if (order.paymentStatus === "已支付") {
+        sendJson(res, 400, { error: "订单已支付，请勿重复支付" });
+        return;
+      }
+
+      if (order.orderStatus !== "待支付") {
+        sendJson(res, 400, { error: "订单不是待支付状态" });
+        return;
+      }
+
+      const product = await store.getProduct(order.productId);
+      if (!product || product.status !== "在售") {
+        sendJson(res, 400, { error: "商品状态已变化，无法支付" });
+        return;
+      }
+
+      const payment = await createPaymentByProvider("alipay", {
+        order,
+        user: {
+          id: user.id,
+          email: user.email || ""
+        }
+      });
+
+      sendJson(res, 501, {
+        error: "支付宝沙箱支付暂未正式接入",
+        data: payment
+      });
+    } catch (error) {
+      if (error && error.isPaymentProviderError) {
+        const payload = { error: error.message || "支付宝沙箱支付暂未正式接入" };
+        if (Array.isArray(error.missing)) payload.missing = error.missing;
+        if (error.payment) payload.data = error.payment;
+        sendJson(res, error.statusCode || 400, payload);
+        return;
+      }
+
+      sendJson(res, 500, { error: "创建支付宝沙箱支付失败" });
     }
     return;
   }
@@ -1188,7 +1273,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/orders", "/api/payments", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch || orderPaymentsMatch || orderActionMatch) {
+  if (["/health", "/api/categories", "/api/products", "/api/transactions", "/api/profile", "/api/favorites", "/api/conversations", "/api/orders", "/api/payments", "/api/payments/alipay-sandbox/status", "/api/reset-demo-products"].includes(pathname) || productMatch || productStatusMatch || favoriteMatch || conversationMessagesMatch || orderPaymentsMatch || orderAlipaySandboxPaymentMatch || orderActionMatch) {
     sendJson(res, 405, { error: "Method Not Allowed" });
     return;
   }

@@ -213,3 +213,12 @@
 - mock payment 写入 `payment_records` 的逻辑已从订单 store 中抽离，`pay-simulate` 通过 `createPaymentByProvider("mock", ...)` 调用 mock provider。
 - `alipay` / `wechat` 当前仅保留 placeholder，不接真实支付宝或微信支付；通过统一 provider 入口调用时会返回“真实支付暂未接入”。
 - 后续接入支付宝/微信沙箱时，需要实现 `createAlipayPayment` / `createWechatPayment`、支付创建、`pay_url`、`notify_url`、回调验签、退款和商户配置等能力。
+
+## 2026-05-29 支付宝沙箱接入准备 v0
+
+- `backend/payment-providers.js` 新增支付宝沙箱配置检查：`getAlipaySandboxConfig()` / `checkAlipaySandboxConfig()`，只返回配置是否齐全和缺失项，不输出密钥内容。
+- 后端新增 `GET /api/payments/alipay-sandbox/status`，登录后可查看 `provider=alipay`、`mode=sandbox`、`ready` 和 `missing`。
+- 后端新增 `POST /api/orders/:id/pay/alipay-sandbox`，会复用买家、订单状态和商品在售校验，但当前只返回“支付宝沙箱支付暂未正式接入”或“支付宝沙箱配置未完成”，不会改变订单、商品或写入已支付记录。
+- Render Environment Variables 后续需要配置：`ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY`、`ALIPAY_GATEWAY`、`ALIPAY_NOTIFY_URL`、`ALIPAY_RETURN_URL`。
+- 本阶段不接真实支付宝生产支付，不接微信支付，不处理真钱交易，也不做青柠币；mock 支付流程继续可用。
+- 后续真正接入支付宝沙箱的步骤：获取支付宝沙箱应用参数，配置 Render 环境变量，接入 `alipay.trade.wap.pay` 或对应 H5 支付接口，实现 `notify_url` 回调验签，并在支付成功后更新 `payment_records` / `orders` / `products`。

@@ -8,10 +8,20 @@ function throwIfError(error) {
   }
 }
 
-function createProviderError(message, statusCode = 400) {
+const ALIPAY_SANDBOX_ENV_KEYS = [
+  "ALIPAY_APP_ID",
+  "ALIPAY_PRIVATE_KEY",
+  "ALIPAY_PUBLIC_KEY",
+  "ALIPAY_GATEWAY",
+  "ALIPAY_NOTIFY_URL",
+  "ALIPAY_RETURN_URL"
+];
+
+function createProviderError(message, statusCode = 400, details = {}) {
   const error = new Error(message);
   error.statusCode = statusCode;
   error.isPaymentProviderError = true;
+  Object.assign(error, details);
   return error;
 }
 
@@ -63,6 +73,7 @@ function createProviderPlaceholder(provider, message, params = {}) {
     amount: order.price ?? 0,
     paymentStatus: "待支付",
     payUrl: "",
+    message,
     notifyPayload: null,
     rawResponse: {
       provider,
@@ -72,6 +83,30 @@ function createProviderPlaceholder(provider, message, params = {}) {
     createdAt: "",
     paidAt: "",
     failedAt: ""
+  };
+}
+
+function getEnvValue(key) {
+  return String(process.env[key] || "").trim();
+}
+
+function getAlipaySandboxConfig() {
+  return {
+    appId: getEnvValue("ALIPAY_APP_ID"),
+    privateKeyConfigured: Boolean(getEnvValue("ALIPAY_PRIVATE_KEY")),
+    publicKeyConfigured: Boolean(getEnvValue("ALIPAY_PUBLIC_KEY")),
+    gateway: getEnvValue("ALIPAY_GATEWAY"),
+    notifyUrl: getEnvValue("ALIPAY_NOTIFY_URL"),
+    returnUrl: getEnvValue("ALIPAY_RETURN_URL")
+  };
+}
+
+function checkAlipaySandboxConfig() {
+  const missing = ALIPAY_SANDBOX_ENV_KEYS.filter((key) => !getEnvValue(key));
+
+  return {
+    ready: missing.length === 0,
+    missing
   };
 }
 
@@ -157,7 +192,27 @@ async function createMockPaymentRecord(params = {}) {
 }
 
 function createAlipayPaymentPlaceholder(params = {}) {
-  return createProviderPlaceholder("alipay", "alipay provider not implemented", params);
+  const configStatus = checkAlipaySandboxConfig();
+  if (!configStatus.ready) {
+    throw createProviderError("支付宝沙箱配置未完成", 400, {
+      missing: configStatus.missing
+    });
+  }
+
+  const placeholder = createProviderPlaceholder(
+    "alipay",
+    "支付宝沙箱支付接口尚未正式接入",
+    params
+  );
+
+  return {
+    ...placeholder,
+    rawResponse: {
+      ...placeholder.rawResponse,
+      mode: "sandbox",
+      configReady: true
+    }
+  };
 }
 
 function createWechatPaymentPlaceholder(params = {}) {
@@ -171,7 +226,14 @@ async function createPaymentByProvider(provider, params = {}) {
     return createMockPaymentRecord(params);
   }
 
-  if (normalizedProvider === "alipay" || normalizedProvider === "wechat") {
+  if (normalizedProvider === "alipay") {
+    const placeholder = createAlipayPaymentPlaceholder(params);
+    throw createProviderError("支付宝沙箱支付暂未正式接入", 501, {
+      payment: placeholder
+    });
+  }
+
+  if (normalizedProvider === "wechat") {
     throw createProviderError("真实支付暂未接入", 400);
   }
 
@@ -179,6 +241,8 @@ async function createPaymentByProvider(provider, params = {}) {
 }
 
 module.exports = {
+  getAlipaySandboxConfig,
+  checkAlipaySandboxConfig,
   createMockPaymentRecord,
   createAlipayPaymentPlaceholder,
   createWechatPaymentPlaceholder,
