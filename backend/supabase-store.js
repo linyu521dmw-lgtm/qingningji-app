@@ -581,6 +581,10 @@ async function createOrUpdateMockPaymentRecord(order, user, paidAt = nowIso()) {
   throwIfError(selectError);
 
   const existingRecord = (existingRecords || [])[0];
+  if (existingRecord && existingRecord.payment_status === "已支付") {
+    return toCamelPaymentRecord(existingRecord);
+  }
+
   const rawResponse = {
     provider: "mock",
     action: "pay-simulate",

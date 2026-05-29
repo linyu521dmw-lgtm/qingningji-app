@@ -2753,7 +2753,39 @@
       return [];
     }
 
+    function normalizePaymentRecord(payment) {
+      if (!payment || typeof payment !== "object") return null;
+      return {
+        id: String(payment.id || ""),
+        orderId: String(payment.orderId || payment.order_id || ""),
+        productId: String(payment.productId || payment.product_id || ""),
+        payerId: String(payment.payerId || payment.payer_id || ""),
+        payerEmail: String(payment.payerEmail || payment.payer_email || ""),
+        provider: String(payment.provider || ""),
+        outTradeNo: String(payment.outTradeNo || payment.out_trade_no || ""),
+        providerTradeNo: String(payment.providerTradeNo || payment.provider_trade_no || ""),
+        amount: payment.amount ?? 0,
+        paymentStatus: String(payment.paymentStatus || payment.payment_status || ""),
+        payUrl: String(payment.payUrl || payment.pay_url || ""),
+        notifyPayload: payment.notifyPayload || payment.notify_payload || null,
+        rawResponse: payment.rawResponse || payment.raw_response || null,
+        createdAt: payment.createdAt || payment.created_at || "",
+        paidAt: payment.paidAt || payment.paid_at || "",
+        failedAt: payment.failedAt || payment.failed_at || ""
+      };
+    }
+
+    function normalizePaymentRecords(payload) {
+      const records = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload && payload.data)
+          ? payload.data
+          : [];
+      return records.map(normalizePaymentRecord).filter(Boolean);
+    }
+
     function normalizeOrder(order) {
+      const latestPayment = normalizePaymentRecord(order.latestPayment || order.latest_payment || null);
       return {
         id: String(order.id || ""),
         productId: String(order.productId || order.product_id || ""),
@@ -2764,12 +2796,13 @@
         productTitle: String(order.productTitle || order.product_title || "未命名商品"),
         price: order.price ?? 0,
         orderStatus: String(order.orderStatus || order.order_status || "待支付"),
-        paymentStatus: String(order.paymentStatus || order.payment_status || "未支付"),
-        paymentProvider: String(order.paymentProvider || order.payment_provider || order.latestPayment?.provider || order.latest_payment?.provider || ""),
+        paymentStatus: String(order.paymentStatus || order.payment_status || latestPayment?.paymentStatus || "未支付"),
+        paymentProvider: String(order.paymentProvider || order.payment_provider || latestPayment?.provider || ""),
+        paymentOutTradeNo: String(order.paymentOutTradeNo || order.payment_out_trade_no || order.outTradeNo || order.out_trade_no || latestPayment?.outTradeNo || ""),
         pickupStatus: String(order.pickupStatus || order.pickup_status || "待自取"),
         meetLocation: String(order.meetLocation || order.meet_location || ""),
         note: String(order.note || ""),
-        latestPayment: order.latestPayment || order.latest_payment || null,
+        latestPayment,
         createdAt: order.createdAt || order.created_at || "",
         paidAt: order.paidAt || order.paid_at || "",
         completedAt: order.completedAt || order.completed_at || "",
@@ -3498,7 +3531,12 @@
 
     function canPayOrder(order) {
       const user = currentUser();
-      return Boolean(user && order.buyerId === user.id && order.orderStatus === "待支付");
+      return Boolean(
+        user
+        && order.buyerId === user.id
+        && order.orderStatus === "待支付"
+        && order.paymentStatus !== "已支付"
+      );
     }
 
     function canCompleteOrder(order) {
@@ -3524,9 +3562,16 @@
       const contactLabel = role === "buyer" ? "卖家" : "买家";
       const contact = role === "buyer" ? order.sellerEmail : order.buyerEmail;
       const paymentProvider = order.paymentProvider || (order.latestPayment && order.latestPayment.provider) || "";
-      const paymentDetail = order.paymentStatus === "已支付" && paymentProvider
-        ? `<p class="order-meta">支付方式：${escapeHtml(paymentProvider)} · 支付状态：${escapeHtml(order.paymentStatus)}</p>`
-        : "";
+      const paymentOutTradeNo = order.paymentOutTradeNo || (order.latestPayment && order.latestPayment.outTradeNo) || "";
+      const paymentDetails = [
+        `<p class="order-meta">支付状态：${escapeHtml(order.paymentStatus || "未支付")}</p>`,
+        order.paymentStatus === "已支付" && paymentProvider
+          ? `<p class="order-meta">支付方式：${escapeHtml(paymentProvider)}</p>`
+          : "",
+        order.paymentStatus === "已支付" && paymentOutTradeNo
+          ? `<p class="order-meta">支付流水：${escapeHtml(paymentOutTradeNo)}</p>`
+          : ""
+      ].filter(Boolean).join("");
       const actions = [
         canPayOrder(order) ? `<button class="order-action-button" type="button" data-order-action="pay" data-order-id="${escapeHtml(order.id)}">模拟支付成功</button>` : "",
         canCompleteOrder(order) ? `<button class="order-action-button" type="button" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">确认完成</button>` : "",
@@ -3545,7 +3590,7 @@
             <span class="order-badge">${escapeHtml(order.pickupStatus)}</span>
           </div>
           <p class="order-meta">${escapeHtml(contactLabel)}：${escapeHtml(contact || "未记录")}</p>
-          ${paymentDetail}
+          ${paymentDetails}
           ${order.meetLocation ? `<p class="order-meta">自取地点：${escapeHtml(order.meetLocation)}</p>` : ""}
           ${actions ? `<div class="order-actions">${actions}</div>` : ""}
         </article>
@@ -3925,6 +3970,37 @@
       }
     }
 
+    async function hydrateOrdersWithPayments(orderList) {
+      if (!orderList.length) return orderList;
+
+      const headers = await authHeaders();
+      const hydratedOrders = await Promise.all(orderList.map(async (order) => {
+        try {
+          const response = await fetch(`${ORDERS_URL}/${encodeURIComponent(order.id)}/payments`, {
+            headers
+          });
+
+          if (!response.ok) return order;
+
+          const payments = normalizePaymentRecords(await response.json());
+          const latestPayment = payments[0];
+          if (!latestPayment) return order;
+
+          return {
+            ...order,
+            paymentStatus: latestPayment.paymentStatus || order.paymentStatus,
+            paymentProvider: latestPayment.provider || order.paymentProvider,
+            paymentOutTradeNo: latestPayment.outTradeNo || order.paymentOutTradeNo,
+            latestPayment
+          };
+        } catch (error) {
+          return order;
+        }
+      }));
+
+      return hydratedOrders;
+    }
+
     async function loadOrders() {
       if (!currentUser()) {
         orders = [];
@@ -3958,7 +4034,7 @@
           return;
         }
 
-        orders = normalizeOrders(await response.json());
+        orders = await hydrateOrdersWithPayments(normalizeOrders(await response.json()));
         ordersLoaded = true;
         renderOrdersView();
       } catch (error) {

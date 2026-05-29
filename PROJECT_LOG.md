@@ -198,3 +198,11 @@
 - 后端新增 `GET /api/payments` 和 `GET /api/orders/:id/payments`，分别用于查看当前用户自己的支付记录和订单参与方查看指定订单支付记录。
 - `payment_records` 预留 `provider = mock / alipay / wechat`、`pay_url`、`provider_trade_no`、`notify_payload`、`raw_response` 等字段，后续可接入 alipay/wechat provider。
 - 真实支付接入时需要补齐 `notify_url` 回调、平台验签、退款流程、商户号和沙箱/正式环境配置。
+
+## 2026-05-29 支付 v0.1 收口
+
+- `payment_records` 已作为当前 mock 支付记录层，承载订单支付流水、支付 provider、支付状态和后续第三方支付预留字段。
+- “我的”页面订单卡片增加支付信息展示：待支付显示 `支付状态：未支付`，已支付显示 `支付方式`、`支付状态` 和可用的 `支付流水 outTradeNo`。
+- 订单加载时会通过 `GET /api/orders/:id/payments` 补齐最新支付记录，避免订单列表缺少流水号时展示不完整。
+- 当前仍仅使用 `mock` provider，不接真实支付宝、微信支付，不处理真实资金，也不做青柠币。
+- 后续真实支付宝/微信接入需要补齐支付创建、`pay_url`、`notify_url`、回调验签和退款流程。
