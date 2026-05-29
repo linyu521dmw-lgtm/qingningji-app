@@ -826,6 +826,11 @@ async function handleRequest(req, res) {
           return;
         }
 
+        if (order.paymentStatus === "已支付") {
+          sendJson(res, 400, { error: "订单已支付，请勿重复支付" });
+          return;
+        }
+
         if (order.orderStatus !== "待支付") {
           sendJson(res, 400, { error: "订单不是待支付状态" });
           return;

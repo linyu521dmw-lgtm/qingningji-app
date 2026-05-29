@@ -194,6 +194,7 @@
 - Supabase 新增 `payment_records` 表，用于记录订单支付流水和未来第三方支付字段。
 - 当前支付 provider 仅为 `mock`，不接真实支付宝、微信支付，不处理真实资金，也不做青柠币。
 - `PATCH /api/orders/:id/pay-simulate` 已改造成 mock payment flow：先创建或更新 `payment_records`，再把订单改为 `已支付` / `待自取`，并把商品改为 `已预定`。
+- 重复点击已支付订单会返回明确错误；`raw_response` 会记录 `provider: mock` 与 `action: pay-simulate`，方便后续排查支付适配层行为。
 - 后端新增 `GET /api/payments` 和 `GET /api/orders/:id/payments`，分别用于查看当前用户自己的支付记录和订单参与方查看指定订单支付记录。
 - `payment_records` 预留 `provider = mock / alipay / wechat`、`pay_url`、`provider_trade_no`、`notify_payload`、`raw_response` 等字段，后续可接入 alipay/wechat provider。
 - 真实支付接入时需要补齐 `notify_url` 回调、平台验签、退款流程、商户号和沙箱/正式环境配置。

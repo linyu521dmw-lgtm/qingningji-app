@@ -583,19 +583,22 @@ async function createOrUpdateMockPaymentRecord(order, user, paidAt = nowIso()) {
   const existingRecord = (existingRecords || [])[0];
   const rawResponse = {
     provider: "mock",
+    action: "pay-simulate",
     result: "success",
     message: "mock payment success",
     orderId: order.id,
     productId: order.productId,
+    outTradeNo: existingRecord && existingRecord.out_trade_no ? existingRecord.out_trade_no : makeMockOutTradeNo(order.id),
     paidAt
   };
+  const outTradeNo = rawResponse.outTradeNo;
   const paymentPayload = {
     order_id: order.id,
     product_id: order.productId,
     payer_id: user.id,
     payer_email: user.email || "",
     provider: "mock",
-    out_trade_no: existingRecord && existingRecord.out_trade_no ? existingRecord.out_trade_no : makeMockOutTradeNo(order.id),
+    out_trade_no: outTradeNo,
     provider_trade_no: null,
     amount: order.price ?? 0,
     payment_status: "已支付",
